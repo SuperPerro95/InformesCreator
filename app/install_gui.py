@@ -30,7 +30,7 @@ def _read_version() -> str:
         vfile = APP_DIR / "version.txt"
         return vfile.read_text(encoding="utf-8").strip()
     except Exception:
-        return "1.0.0"
+        return "1.0.1"
 
 CLOUD_MODELS = [
     ("gemma4:31b-cloud", "~20 GB", "~15-25 min"),
