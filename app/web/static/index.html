@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InformesCreator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css?v=2">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        corePlugins: {
+          preflight: false,
+        }
+      }
+    </script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+<body>
+    <div id="hero-bg"></div>
+    <canvas id="bg-particles"></canvas>
+    <div id="app">
+        <!-- ====== Hero Screen ====== -->
+        <div id="hero-screen" class="hero-screen">
+            <div class="hero-content">
+                <div class="hero-icon-wrap">
+                    <i data-lucide="graduation-cap" class="hero-icon"></i>
+                </div>
+                <h1 class="hero-title">InformesCreator</h1>
+                <p class="hero-subtitle">Generador de Informes de Avance</p>
+                <button id="btn-hero-cta" class="hero-cta">
+                    Comenzar
+                    <i data-lucide="arrow-right" style="width:20px;height:20px;"></i>
+                </button>
+                <p class="hero-tagline">Una herramienta para docentes que genera informes de avance con IA.</p>
+            </div>
+        </div>
+
+        <!-- ====== Overlay: Verificacion Inicial ====== -->
+        <div id="onboarding-overlay" class="onboarding-overlay hidden">
+            <div class="onboarding-card">
+                <h1>Bienvenido a InformesCreator</h1>
+                <p class="onboarding-subtitle">Generador de Informes de Avance</p>
+
+                <div id="onboarding-ollama" class="onboarding-section">
+                    <h3>Verificando Ollama...</h3>
+                    <div id="onboarding-ollama-status" class="status-box">
+                        <p>Verificando estado de Ollama...</p>
+                    </div>
+                    <div id="onboarding-ollama-setup" class="hidden"></div>
+                </div>
+
+                <div id="onboarding-folder" class="onboarding-section">
+                    <h3>Carpeta de archivos</h3>
+                    <div class="folder-option">
+                        <label><input type="radio" name="folder-option" value="existing" checked> Ya tengo la carpeta CURSOS con mis alumnos</label>
+                    </div>
+                    <div class="folder-option">
+                        <label><input type="radio" name="folder-option" value="new"> No tengo carpeta, quiero crear un curso nuevo</label>
+                    </div>
+
+                    <div id="existing-folder-section">
+                        <label for="base-path">Ruta base (donde esta la carpeta CURSOS):</label>
+                        <div style="display:flex;gap:8px;">
+                            <input type="text" id="base-path" placeholder="Ej: E:\Google_Drive\Base\Mi escuela\CURSOS" style="flex:1;">
+                            <button id="btn-pick-folder" class="btn-secondary btn-sm" type="button" style="margin-top:0;white-space:nowrap;">
+                                <i data-lucide="folder-search" style="width:16px;height:16px;"></i> Seleccionar
+                            </button>
+                        </div>
+                        <p class="hint">En Windows podes usar la barra invertida (\) o la barra normal (/).</p>
+                    </div>
+
+                    <div id="new-course-section" class="hidden">
+                        <label for="new-course-name">Nombre del curso:</label>
+                        <input type="text" id="new-course-name" placeholder="Ej: 1ro B ESN5">
+
+                        <label for="new-students-list">Lista de alumnos (uno por linea):</label>
+                        <textarea id="new-students-list" rows="6" placeholder="Ej:&#10;Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
+                        <p class="hint">Escribi un nombre por linea. La app les asigna numero de lista automaticamente.</p>
+                    </div>
+                </div>
+
+                <button id="btn-start" class="btn-primary" disabled>Comenzar</button>
+            </div>
+        </div>
+
+        <!-- ====== Header Global ====== -->
+        <header class="hidden">
+            <div class="header-left">
+                <h1>InformesCreator</h1>
+                <div class="header-indicators">
+                    <span id="indicator-ollama" class="indicator indicator-pending">
+                        <i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama
+                    </span>
+                    <span id="indicator-folder" class="indicator indicator-pending">
+                        <i data-lucide="folder" style="width:14px;height:14px;"></i> <span id="indicator-folder-path">Sin ruta</span>
+                    </span>
+                </div>
+            </div>
+            <div class="header-right">
+                <button id="btn-mis-cursos" class="btn-primary btn-sm">
+                    <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
+                </button>
+            </div>
+        </header>
+
+        <!-- ====== Menu de Cursos (overlay) ====== -->
+        <div id="courses-menu" class="hidden">
+            <div class="courses-menu-overlay">
+                <div class="courses-menu-panel">
+                    <div class="courses-menu-header">
+                        <h2>Mis Cursos</h2>
+                        <button id="btn-close-courses-menu" class="btn-ghost btn-sm">
+                            <i data-lucide="x" style="width:18px;height:18px;"></i>
+                        </button>
+                    </div>
+                    <p class="hint">Selecciona un curso para continuar con los informes.</p>
+                    <div id="courses-grid" class="courses-grid"></div>
+
+                    <div id="create-course-section" class="hidden">
+                        <h3>Crear nuevo curso</h3>
+                        <label for="new-course-name-step3">Nombre del curso:</label>
+                        <input type="text" id="new-course-name-step3" placeholder="Ej: 1ro B ESN5">
+                        <label for="new-students-list-step3">Lista de alumnos (uno por linea):</label>
+                        <textarea id="new-students-list-step3" rows="6" placeholder="Ej:&#10;Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
+                        <div class="obs-actions">
+                            <button id="btn-create-course-step3" class="btn-primary">Crear curso</button>
+                            <button id="btn-cancel-create-course" class="btn-secondary">Cancelar</button>
+                        </div>
+                    </div>
+                    <button id="btn-show-create-course" class="btn-primary">
+                        <i data-lucide="plus" style="width:18px;height:18px;"></i> Crear nuevo curso
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== Dashboard del Curso (pantalla principal) ====== -->
+        <main id="course-view" class="hidden">
+            <div class="course-view-header">
+                <h2 id="course-view-title">Curso</h2>
+                <p class="hint">Resumen de alumnos y progreso del curso.</p>
+            </div>
+
+            <div id="dashboard-stats" class="summary-box"></div>
+            <div id="dashboard-students-list" class="students-list list-container"></div>
+
+            <div class="dashboard-actions">
+                <button id="btn-download-all" class="btn-primary">Descargar informe completo del curso</button>
+                <button id="btn-back-to-menu" class="btn-secondary">Volver a Mis Cursos</button>
+            </div>
+        </main>
+
+        <!-- ====== Wizard: 3 Pasos ====== -->
+        <main id="wizard" class="hidden">
+            <!-- Barra de progreso -->
+            <nav id="progress-bar">
+                <div class="step active" data-step="1" title="Cuestionario"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
+                <div class="step" data-step="2" title="Configuracion"><i data-lucide="settings" class="step-icon"></i><span class="step-label">Configuracion</span></div>
+                <div class="step" data-step="3" title="Informe"><i data-lucide="scroll-text" class="step-icon"></i><span class="step-label">Informe</span></div>
+            </nav>
+
+            <!-- Paso 1: Cuestionario -->
+            <section id="step-1" class="step-content active">
+                <!-- Sticky header -->
+                <div id="questionnaire-sticky-header" class="sticky-header">
+                    <div id="sticky-student-name" class="sticky-student-name"></div>
+                    <div id="sticky-student-counter" class="sticky-student-counter"></div>
+                </div>
+
+                <!-- Contenidos del curso -->
+                <div id="contents-section" class="question-section contents-section">
+                    <h3>Contenidos del Curso</h3>
+                    <div id="contents-edit-mode">
+                        <textarea id="course-contents" rows="4" placeholder="Present simple&#10;Past simple&#10;Vocabulary"></textarea>
+                        <div class="obs-actions" style="margin-top: var(--space-3);">
+                            <button id="btn-save-contents" class="btn-primary">Guardar contenidos</button>
+                        </div>
+                    </div>
+                    <div id="contents-view-mode" class="hidden">
+                        <div id="contents-display" class="report-box" style="max-height: none; padding: var(--space-4); font-size: 0.875rem;"></div>
+                        <div class="obs-actions" style="margin-top: var(--space-3);">
+                            <button id="btn-edit-contents" class="btn-secondary">Editar contenidos del curso</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="question-progress-bar">
+                    <div id="question-progress-fill" class="question-progress-fill" style="width: 0%"></div>
+                </div>
+                <div id="question-counter" class="question-counter">Pregunta 1 / 19</div>
+                <button id="btn-toggle-contents" class="btn-ghost btn-sm" style="display:block;margin:0 auto 8px;">Editar contenidos del curso</button>
+
+                <!-- Panel de observaciones -->
+                <div id="observations-panel" class="hidden">
+                    <h3>Observaciones del alumno</h3>
+                    <p class="hint">Registra las observaciones de clase del alumno. Cada observación indica que estuvo presente ese día. La asistencia se calcula desde los totales que ingreses abajo.</p>
+
+                    <div class="obs-actions" style="margin-bottom: var(--space-4); margin-top: 0;">
+                        <button id="btn-skip-obs" class="btn-secondary">No modificar, ir al cuestionario</button>
+                        <button id="btn-save-obs" class="btn-primary">Guardar observaciones y continuar</button>
+                    </div>
+
+                    <!-- Asistencia -->
+                    <div id="obs-attendance-inputs" style="background: var(--surface-subtle); padding: var(--space-4); border-radius: var(--radius-lg); margin-bottom: var(--space-4); border: 2px solid var(--border-default);">
+                        <h4 style="margin-top: 0; font-size: 1rem;">Asistencia</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                            <div>
+                                <label for="obs-attendance-total">Total de clases:</label>
+                                <input type="number" id="obs-attendance-total" min="0" value="0">
+                            </div>
+                            <div>
+                                <label for="obs-attendance-absences">Inasistencias:</label>
+                                <input type="number" id="obs-attendance-absences" min="0" value="0">
+                            </div>
+                        </div>
+                        <p id="obs-attendance-percentage" class="hint" style="margin-top: var(--space-2);"></p>
+                    </div>
+
+                    <!-- Resumen de asistencia -->
+                    <div id="obs-attendance-summary" style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-md); border: 2px solid var(--border-default);"></div>
+
+                    <!-- Carga rapida -->
+                    <div class="obs-quick-input">
+                        <label>Carga rapida de observaciones:</label>
+                        <p class="hint" style="margin-top: 0; margin-bottom: var(--space-2);">Formato: <strong>dd/mm - Comentario</strong>. Ej: 15/3 - Participó activamente</p>
+                        <div style="display: flex; gap: var(--space-2); align-items: flex-start;">
+                            <textarea id="obs-quick-text" rows="3" placeholder="15/3 - Participó activamente&#10;20/3 - No realizó la tarea&#10;..." style="flex: 1;"></textarea>
+                            <button id="btn-parse-obs" class="btn-secondary" style="margin-top: 0; white-space: nowrap;">Agregar</button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de observaciones -->
+                    <div class="obs-table-container">
+                        <div class="obs-table-header" style="grid-template-columns: 100px 1fr 40px;">
+                            <span>Fecha</span>
+                            <span>Observacion</span>
+                            <span></span>
+                        </div>
+                        <div id="obs-table-body"></div>
+                        <button id="btn-add-obs-row" class="btn-secondary btn-sm"><i data-lucide="plus" style="width:16px;height:16px;"></i> Agregar fila</button>
+                    </div>
+                </div>
+
+                <!-- Tarjeta de pregunta -->
+                <div id="question-card" class="question-card">
+                    <div id="current-question-text" class="question-text-large"></div>
+                    <div id="current-question-options" class="answer-buttons"></div>
+
+                    <div class="question-nav">
+                        <button id="prev-question-btn" class="btn-secondary prev-btn">&larr; Pregunta anterior</button>
+                        <button id="skip-question-btn" class="btn-secondary skip-btn">Omitir pregunta</button>
+                    </div>
+                    <div class="question-save-bar">
+                        <button id="btn-save-questionnaire" class="btn-secondary btn-sm">Guardar y salir</button>
+                        <button id="btn-skip-all-questions" class="btn-danger btn-sm">Generar informe solo con observaciones</button>
+                    </div>
+                </div>
+
+                <!-- Nota: El panel de asistencia fue movido al panel de observaciones -->
+            </section>
+
+            <!-- Paso 2: Configuracion del Informe -->
+            <section id="step-2" class="step-content">
+                <h2>Configuracion del Informe</h2>
+
+                <div class="model-select-box">
+                    <label>Modelo de IA:</label>
+                    <div id="model-cards"></div>
+                    <div id="model-cards-extra" class="hidden"></div>
+                    <button id="btn-show-more-models" class="btn-secondary btn-sm hidden">Ver mas modelos</button>
+                    <p id="model-description" class="model-description"></p>
+                </div>
+
+                <h3>Variante del Informe</h3>
+                <div id="variants-list"></div>
+                <button id="btn-step-2" class="btn-primary">Generar Informe</button>
+            </section>
+
+            <!-- Paso 3: Informe Generado -->
+            <section id="step-3" class="step-content">
+                <h2>Informe Generado</h2>
+                <div id="report-preview" class="report-box">
+                    <p>Generando informe...</p>
+                </div>
+                <div id="report-actions" class="hidden">
+                    <button id="btn-download" class="btn-primary">Descargar este informe</button>
+                    <button id="btn-next-student" class="btn-primary">Siguiente alumno</button>
+                    <button id="btn-go-dashboard" class="btn-secondary">Volver al curso</button>
+                    <button id="btn-finish" class="btn-secondary">Finalizar</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- ====== Loading ====== -->
+        <div id="loading" class="hidden">
+            <div class="spinner"></div>
+            <p>Procesando...</p>
+        </div>
+    </div>
+
+    <!-- ====== Botón de Ayuda ====== -->
+    <button id="btn-help" class="help-btn hidden" title="Ayuda">
+        <i data-lucide="help-circle" style="width:24px;height:24px;"></i>
+    </button>
+
+    <!-- ====== Panel de Ayuda ====== -->
+    <div id="help-modal" class="help-modal hidden">
+        <div class="help-overlay"></div>
+        <div class="help-panel">
+            <div class="help-header">
+                <h3>Ayuda</h3>
+                <button id="btn-close-help" class="btn-ghost btn-sm">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div id="help-content"></div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=2"></script>
+</body>
+</html>
