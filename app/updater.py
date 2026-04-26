@@ -18,7 +18,7 @@ from tkinter import messagebox, ttk
 from urllib.request import Request, urlopen
 
 # Configuracion: repositorio GitHub donde se publican los releases
-GITHUB_OWNER = "mrberru"
+GITHUB_OWNER = "SuperPerro95"
 GITHUB_REPO = "InformesCreator"
 
 APP_DIR = Path(__file__).resolve().parent
