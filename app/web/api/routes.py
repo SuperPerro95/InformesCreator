@@ -44,8 +44,8 @@ class CourseContentsRequest(BaseModel):
 
 class StudentObservation(BaseModel):
     fecha: str
-    codigo: str
-    tipo: str
+    codigo: str = ""
+    tipo: str = ""
     comentario: str
 
 
@@ -422,5 +422,70 @@ def update_config(updates: Dict[str, str]):
 
 @router.get("/pick-folder")
 def pick_folder():
-    """Placeholder: el selector de carpetas se hace desde el frontend via File System Access API."""
-    return {"error": "Usa el selector del navegador. Si no aparece, escribi la ruta manualmente."}
+    """Abre un dialogo nativo de seleccion de carpeta y devuelve la ruta absoluta."""
+    # 1. Tkinter (funciona en Windows/macOS/Linux con display)
+    try:
+        import tkinter as tk
+        from tkinter import filedialog
+
+        root = tk.Tk()
+        root.withdraw()
+        root.attributes("-topmost", True)
+        folder = filedialog.askdirectory(title="Seleccionar carpeta CURSOS")
+        root.destroy()
+
+        if folder:
+            return {"path": folder}
+        return {"path": "", "cancelled": True}
+    except Exception:
+        pass
+
+    # 2. PowerShell (Windows / WSL)
+    try:
+        import subprocess
+
+        ps_cmd = (
+            'Add-Type -AssemblyName System.Windows.Forms; '
+            '$dlg = New-Object System.Windows.Forms.FolderBrowserDialog; '
+            '$dlg.Description = "Seleccionar carpeta CURSOS"; '
+            'if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { '
+            '    Write-Output $dlg.SelectedPath '
+            '}'
+        )
+        result = subprocess.run(
+            ["powershell.exe", "-NoProfile", "-Command", ps_cmd],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        folder = result.stdout.strip()
+        if folder:
+            # Convert Windows path to WSL/Linux path if needed
+            if folder.startswith("\\") or (len(folder) > 1 and folder[1] == ":"):
+                # WSL: convert C:\path to /mnt/c/path
+                import re
+                folder = re.sub(r"^([A-Za-z]):", lambda m: f"/mnt/{m.group(1).lower()}", folder)
+                folder = folder.replace("\\", "/")
+            return {"path": folder}
+        return {"path": "", "cancelled": True}
+    except Exception:
+        pass
+
+    # 3. Zenity (Linux con display)
+    try:
+        import subprocess
+
+        result = subprocess.run(
+            ["zenity", "--file-selection", "--directory", "--title=Seleccionar carpeta CURSOS"],
+            capture_output=True,
+            text=True,
+            timeout=60,
+        )
+        folder = result.stdout.strip()
+        if folder:
+            return {"path": folder}
+        return {"path": "", "cancelled": True}
+    except Exception:
+        pass
+
+    return {"error": "No se pudo abrir el selector de carpetas. Escribi la ruta manualmente."}

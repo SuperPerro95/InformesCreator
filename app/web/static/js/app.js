@@ -1136,7 +1136,7 @@ function renderObservationsTable() {
 }
 
 function addEmptyObsRow() {
-  currentObservations.push({ fecha: '', comentario: '' });
+  currentObservations.push({ fecha: '', codigo: '', tipo: '', comentario: '' });
   renderObservationsTable();
 }
 
@@ -1150,11 +1150,13 @@ function parseQuickObservations() {
     if (match) {
       currentObservations.push({
         fecha: match[1].trim(),
+        codigo: '',
+        tipo: '',
         comentario: match[2].trim()
       });
     } else {
       // Si no tiene formato, usar todo como comentario
-      currentObservations.push({ fecha: '', comentario: line });
+      currentObservations.push({ fecha: '', codigo: '', tipo: '', comentario: line });
     }
   });
   $('obs-quick-text').value = '';
@@ -1185,6 +1187,8 @@ async function saveObservationsAndContinue() {
   rows.forEach(row => {
     currentObservations.push({
       fecha: row.querySelector('.obs-fecha').value,
+      codigo: '',
+      tipo: '',
       comentario: row.querySelector('.obs-comentario').value,
     });
   });
@@ -1207,13 +1211,13 @@ async function saveObservationsAndContinue() {
       total_classes: totalClasses,
       absences: absences
     };
+    hide($('observations-panel'));
+    startQuestionnaireForCurrentStudent();
   } catch (err) {
-    console.error('Error guardando observaciones:', err);
+    alert('Error guardando observaciones: ' + err.message);
   } finally {
     setLoading(false);
   }
-  hide($('observations-panel'));
-  startQuestionnaireForCurrentStudent();
 }
 
 function skipObservationsAndContinue() {
@@ -1798,31 +1802,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('btn-pick-folder').addEventListener('click', async () => {
     try {
-      if (window.showDirectoryPicker) {
-        const dirHandle = await window.showDirectoryPicker();
-        const current = $('base-path').value.trim();
-        if (!current) {
-          $('base-path').value = dirHandle.name;
-        }
+      setLoading(true);
+      const data = await apiGet('/pick-folder');
+      setLoading(false);
+      if (data.error) {
+        alert('Error abriendo selector: ' + data.error);
+        return;
+      }
+      if (data.cancelled) {
+        return;
+      }
+      if (data.path) {
+        $('base-path').value = data.path;
+        $('base-path').dispatchEvent(new Event('input'));
         $('base-path').focus();
-      } else {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.webkitdirectory = true;
-        input.addEventListener('change', (e) => {
-          if (e.target.files.length > 0) {
-            const rel = e.target.files[0].webkitRelativePath;
-            const folder = rel.split('/')[0];
-            $('base-path').value = folder;
-            $('base-path').focus();
-          }
-        });
-        input.click();
       }
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        alert('Error abriendo selector: ' + err.message);
-      }
+      setLoading(false);
+      alert('Error abriendo selector: ' + err.message);
     }
   });
 
