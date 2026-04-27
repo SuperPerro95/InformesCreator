@@ -235,40 +235,19 @@ class UpdaterApp(tk.Tk):
                         75,
                     )
 
-            self._update_status("Reemplazando archivos...", "#d97706", 80)
-            backup_dir = ROOT_DIR / "app_backup"
-            if backup_dir.exists():
-                shutil.rmtree(backup_dir)
-            if APP_DIR.exists():
-                shutil.move(str(APP_DIR), str(backup_dir))
-            shutil.move(str(extracted_app), str(APP_DIR))
-
-            # Verificar si cambio requirements.txt
-            self._update_status("Verificando dependencias...", "#d97706", 90)
-            req_file = APP_DIR / "requirements.txt"
-            venv_python = ROOT_DIR / ".venv" / "Scripts" / "python.exe"
-            if req_file.exists() and venv_python.exists():
-                pip_path = ROOT_DIR / ".venv" / "Scripts" / "pip.exe"
-                if pip_path.exists():
-                    subprocess.run(
-                        [str(pip_path), "install", "-r", str(req_file)],
-                        stdout=subprocess.DEVNULL,
-                        stderr=subprocess.DEVNULL,
-                        creationflags=0x08000000 if sys.platform == "win32" else 0,
-                        check=False,
-                    )
-
-            # Limpieza
-            zip_path.unlink(missing_ok=True)
-            if extract_dir.exists():
-                shutil.rmtree(extract_dir)
-            if backup_dir.exists():
-                shutil.rmtree(backup_dir)
-
-            self._update_status(
-                "Actualizacion completada correctamente.", "#16a34a", 100
-            )
-            self.btn_restart.pack(side=tk.LEFT, padx=5)
+            self._update_status("Preparando reinicio...", "#d97706", 85)
+            try:
+                batch_path = self._write_update_batch(extract_dir, extracted_app, zip_path)
+                self._launch_update_batch(batch_path)
+                self._update_status(
+                    "Actualizacion lista. Reiniciando...", "#16a34a", 100
+                )
+                self.btn_restart.pack(side=tk.LEFT, padx=5)
+                self.after(1000, self.destroy)
+            except Exception as batch_err:
+                self._update_status(
+                    f"Error preparando reinicio: {batch_err}", "#dc2626", 100
+                )
 
         except Exception as e:
             self._update_status(f"Error aplicando actualizacion: {e}", "#dc2626", 100)
@@ -276,6 +255,70 @@ class UpdaterApp(tk.Tk):
             backup_dir = ROOT_DIR / "app_backup"
             if backup_dir.exists() and not APP_DIR.exists():
                 shutil.move(str(backup_dir), str(APP_DIR))
+
+    def _write_update_batch(self, extract_dir: Path, extracted_app: Path, zip_path: Path) -> Path:
+        """Escribe un .bat que hace el swap de carpetas despues de que este proceso muera."""
+        batch_path = ROOT_DIR / "update_helper.bat"
+        app_name = APP_DIR.name
+        backup_name = "app_backup"
+        extract_name = extract_dir.name
+        extracted_name = extracted_app.name
+        zip_name = zip_path.name
+
+        batch_content = f'''@echo off
+chcp 65001 > nul
+echo [InformesCreator] Preparando actualizacion...
+
+:: Esperar a que el proceso padre libere los archivos
+timeout /t 2 /nobreak > nul
+
+:: Borrar backup anterior si existe
+if exist "{backup_name}" rmdir /s /q "{backup_name}"
+
+:: Mover app actual a backup
+if exist "{app_name}" move "{app_name}" "{backup_name}"
+
+:: Mover nueva app (puede estar dentro de app_update o ser app_update mismo)
+if exist "{extract_name}\\{extracted_name}" (
+    move "{extract_name}\\{extracted_name}" "{app_name}"
+) else (
+    move "{extract_name}" "{app_name}"
+)
+
+:: Limpiar directorio de extraccion residual
+if exist "{extract_name}" rmdir /s /q "{extract_name}"
+
+:: Instalar dependencias si hay venv
+set PIP=.venv\\Scripts\\pip.exe
+if exist "%PIP%" (
+    if exist "{app_name}\\requirements.txt" (
+        "%PIP%" install -r "{app_name}\\requirements.txt" > nul 2>&1
+    )
+)
+
+:: Borrar zip de actualizacion
+if exist "{zip_name}" del "{zip_name}"
+
+:: Reiniciar aplicacion
+set PYTHONW=.venv\\Scripts\\pythonw.exe
+if not exist "%PYTHONW%" set PYTHONW=pythonw
+start "" "%PYTHONW%" "{app_name}\\launcher.py"
+'''
+        batch_path.write_text(batch_content, encoding="utf-8")
+        return batch_path
+
+    def _launch_update_batch(self, batch_path: Path) -> None:
+        """Ejecuta el .bat en segundo plano (sin ventana)."""
+        flags = 0
+        if sys.platform == "win32":
+            flags = 0x08000000  # CREATE_NO_WINDOW
+        subprocess.Popen(
+            [str(batch_path)],
+            cwd=str(ROOT_DIR),
+            creationflags=flags,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
 
     def _restart_app(self):
         try:
