@@ -1257,13 +1257,24 @@ function renderObservationsTable() {
     container.innerHTML = '<p class="hint" style="padding: 8px 0;">No hay observaciones.</p>';
     return;
   }
-  container.innerHTML = currentObservations.map((obs, i) => `
+  container.innerHTML = currentObservations.map((obs, i) => {
+    const codigo = (obs.codigo || '').toString().toUpperCase();
+    return `
     <div class="obs-row" data-index="${i}">
       <input type="text" class="obs-fecha" value="${obs.fecha || ''}" placeholder="15/3">
+      <select class="obs-codigo">
+        <option value="" ${codigo === '' ? 'selected' : ''}></option>
+        <option value="P" ${codigo === 'P' ? 'selected' : ''}>P</option>
+        <option value="A" ${codigo === 'A' ? 'selected' : ''}>A</option>
+        <option value="P-EXC" ${codigo === 'P-EXC' ? 'selected' : ''}>P-EXC</option>
+        <option value="P-X" ${codigo === 'P-X' ? 'selected' : ''}>P-X</option>
+        <option value="T" ${codigo === 'T' ? 'selected' : ''}>T</option>
+      </select>
       <input type="text" class="obs-comentario" value="${obs.comentario || ''}" placeholder="Comentario">
       <button class="btn-remove-row" data-index="${i}"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 
   container.querySelectorAll('.btn-remove-row').forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -1328,7 +1339,7 @@ async function saveObservationsAndContinue() {
   rows.forEach(row => {
     currentObservations.push({
       fecha: row.querySelector('.obs-fecha').value,
-      codigo: '',
+      codigo: row.querySelector('.obs-codigo').value,
       tipo: '',
       comentario: row.querySelector('.obs-comentario').value,
     });
