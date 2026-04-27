@@ -799,6 +799,10 @@ input[type="checkbox"] {
   box-shadow: var(--shadow-card);
 }
 
+.course-card button {
+  cursor: default;
+}
+
 .course-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-card-hover);
@@ -1616,6 +1620,11 @@ input[type="checkbox"] {
   color: #ffffff;
   border-color: var(--accent);
   box-shadow: var(--shadow-button);
+}
+
+.length-btn:hover:not(.active) {
+  background: var(--surface-subtle);
+  border-color: var(--border-hover);
 }
 
 .sliders-group {

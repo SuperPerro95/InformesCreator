@@ -866,6 +866,14 @@ async function loadCoursesGrid() {
       `;
     }).join('');
 
+    container.querySelectorAll('.course-card').forEach(card => {
+      card.addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        const course = card.dataset.course;
+        navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
+      });
+    });
+
     container.querySelectorAll('.course-card-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
@@ -966,21 +974,21 @@ function renderDashboard() {
     let actionButtons;
     if (isCompleted) {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="download" data-index="${i}" title="Descargar">${icon('download', 14)}</button>
-        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="modify" data-index="${i}" title="Modificar informe">${icon('sliders-horizontal', 14)}</button>
-        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="redo" data-index="${i}" title="Rehacer">${icon('refresh-cw', 14)}</button>
-        <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar">${icon('trash-2', 14)}</button>
+        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="download" data-index="${i}" title="Descargar"><i data-lucide="download" style="width:14px;height:14px;"></i></button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="modify" data-index="${i}" title="Modificar informe"><i data-lucide="sliders-horizontal" style="width:14px;height:14px;"></i></button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="redo" data-index="${i}" title="Rehacer"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
+        <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
       `;
     } else if (isIncompleto) {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="continue" data-index="${i}" title="Continuar">${icon('play', 14)}</button>
-        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="generate" data-index="${i}" title="Generar informe">${icon('file-plus', 14)}</button>
-        <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar">${icon('trash-2', 14)}</button>
+        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="continue" data-index="${i}" title="Continuar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="generate" data-index="${i}" title="Generar informe"><i data-lucide="file-plus" style="width:14px;height:14px;"></i></button>
+        <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
       `;
     } else {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="complete" data-index="${i}" title="Comenzar">${icon('play', 14)}</button>
-        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="quick" data-index="${i}" title="Generar rapido">${icon('zap', 14)}</button>
+        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="complete" data-index="${i}" title="Comenzar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="quick" data-index="${i}" title="Generar rapido"><i data-lucide="zap" style="width:14px;height:14px;"></i></button>
       `;
     }
 
@@ -1091,6 +1099,7 @@ function renderDashboard() {
       }
     });
   });
+  if (window.lucide) lucide.createIcons();
 }
 
 // ===================== Wizard Navigation =====================
@@ -1252,7 +1261,7 @@ function renderObservationsTable() {
     <div class="obs-row" data-index="${i}">
       <input type="text" class="obs-fecha" value="${obs.fecha || ''}" placeholder="15/3">
       <input type="text" class="obs-comentario" value="${obs.comentario || ''}" placeholder="Comentario">
-      <button class="btn-remove-row" data-index="${i}">${icon('x', 14)}</button>
+      <button class="btn-remove-row" data-index="${i}"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
     </div>
   `).join('');
 
@@ -1264,6 +1273,7 @@ function renderObservationsTable() {
       updateObsAttendanceSummary();
     });
   });
+  if (window.lucide) lucide.createIcons();
 }
 
 function addEmptyObsRow() {
@@ -1814,29 +1824,53 @@ async function doGenerateReport() {
 
 // NOTE: doRegenerateWithCustomization is below
 
+function _sliderLabel(value, labels) {
+  if (value <= 25) return labels[0];
+  if (value <= 50) return labels[1];
+  if (value <= 75) return labels[2];
+  return labels[3];
+}
+
 function updateCustomizationText() {
-  const parts = [];
+  const textarea = $('customization-text');
+  if (textarea.dataset.manual === 'true') return;
+
   const formality = parseInt($('slider-formality').value);
   const empathy = parseInt($('slider-empathy').value);
   const detail = parseInt($('slider-detail').value);
   const naturalness = parseInt($('slider-naturalness').value);
 
-  if (formality > 70) parts.push('tono más formal');
-  else if (formality < 30) parts.push('tono más casual');
+  const parts = [];
 
-  if (empathy > 70) parts.push('más empático');
-  else if (empathy < 30) parts.push('más objetivo');
+  parts.push(_sliderLabel(formality, [
+    'tono muy casual y cercano',
+    'tono moderadamente informal',
+    'tono profesional y neutro',
+    'tono muy formal y académico'
+  ]));
 
-  if (detail > 70) parts.push('más detallado');
-  else if (detail < 30) parts.push('más conciso');
+  parts.push(_sliderLabel(empathy, [
+    'enfoque objetivo y descriptivo',
+    'algo objetivo, con ligero acompañamiento',
+    'empatía moderada, reconociendo esfuerzos',
+    'muy empático, destacando logros y apoyando dificultades'
+  ]));
 
-  if (naturalness > 70) parts.push('más conversacional');
-  else if (naturalness < 30) parts.push('más estructurado');
+  parts.push(_sliderLabel(detail, [
+    'extremadamente conciso, solo lo esencial',
+    'breve, con puntos clave',
+    'desarrollado, con ejemplos moderados',
+    'muy detallado, con análisis profundo'
+  ]));
 
-  const textarea = $('customization-text');
-  if (!textarea.value.trim()) {
-    textarea.value = parts.join(', ');
-  }
+  parts.push(_sliderLabel(naturalness, [
+    'estructurado, formato clásico de informe',
+    'algo estructurado con flexibilidad',
+    'natural, como nota de seguimiento',
+    'muy conversacional, como charla con colega'
+  ]));
+
+  textarea.value = parts.join('. ') + '.';
 }
 
 async function doRegenerateWithCustomization() {
@@ -2159,10 +2193,9 @@ document.addEventListener('DOMContentLoaded', () => {
   // Length buttons
   document.querySelectorAll('.length-btn').forEach(btn => {
     btn.addEventListener('click', (e) => {
-      selectedVariant = e.target.dataset.length;
+      selectedVariant = e.currentTarget.dataset.length;
       document.querySelectorAll('.length-btn').forEach(b => b.classList.remove('active'));
-      e.target.classList.add('active');
-      doRegenerateWithCustomization();
+      e.currentTarget.classList.add('active');
     });
   });
 
@@ -2175,6 +2208,7 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $('customization-text').addEventListener('input', () => {
     const hasText = $('customization-text').value.trim().length > 0;
+    $('customization-text').dataset.manual = hasText ? 'true' : 'false';
     ['formality', 'empathy', 'detail', 'naturalness'].forEach(name => {
       const slider = $(`slider-${name}`);
       if (slider) slider.disabled = hasText;
