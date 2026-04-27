@@ -1,0 +1,7 @@
+{
+    "base_path": "/mnt/e/Google_Drive/Base/Mi escuela/CURSOS",
+    "ollama_url": "http://localhost:11434",
+    "model": "nemotron-3-super:cloud",
+    "output_dir": "Informes",
+    "default_variant": "A"
+}

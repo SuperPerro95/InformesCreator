@@ -1036,8 +1036,9 @@ class InstallWizard(tk.Tk):
             ))
             self.after(0, lambda: self.deps_progress.config(value=20))
 
-            venv_path = ROOT_DIR / ".venv"
+            venv_path = Path.home() / "AppData" / "Local" / "InformesCreator" / ".venv"
             if not venv_path.exists():
+                venv_path.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run(
                     [self.python_cmd, "-m", "venv", str(venv_path)],
                     check=True,
@@ -1080,10 +1081,10 @@ class InstallWizard(tk.Tk):
                 self.btn_next.config(state=tk.NORMAL),
             ))
 
-        except Exception as e:
-            self.after(0, lambda: (
+        except Exception as exc:
+            self.after(0, lambda err=str(exc): (
                 self.deps_status_lbl.config(
-                    text=f"❌ Error instalando dependencias: {e}", fg="#dc2626"
+                    text=f"❌ Error instalando dependencias: {err}", fg="#dc2626"
                 ),
                 self.btn_install_deps.config(state=tk.NORMAL, text="Reintentar"),
             ))

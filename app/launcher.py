@@ -157,7 +157,7 @@ class LauncherApp(tk.Tk):
         return None
 
     def _find_python(self):
-        venv_python = Path(".venv/Scripts/python.exe")
+        venv_python = Path.home() / "AppData" / "Local" / "InformesCreator" / ".venv" / "Scripts" / "python.exe"
         if venv_python.exists():
             return str(venv_python)
         for cmd in ["python", "py", "python3"]:

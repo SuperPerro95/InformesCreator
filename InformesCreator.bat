@@ -45,7 +45,9 @@ exit /b 1
 
 :found_python
 REM Verificar entorno virtual
-if exist ".venv\Scripts\activate.bat" (
+if exist "%LOCALAPPDATA%\InformesCreator\.venv\Scripts\activate.bat" (
+    call "%LOCALAPPDATA%\InformesCreator\.venv\Scripts\activate.bat"
+) else if exist ".venv\Scripts\activate.bat" (
     call .venv\Scripts\activate.bat
 ) else if exist "venv\Scripts\activate.bat" (
     call venv\Scripts\activate.bat
