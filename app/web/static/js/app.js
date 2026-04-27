@@ -869,7 +869,7 @@ async function loadCoursesGrid() {
     container.querySelectorAll('.course-card-btn').forEach(btn => {
       btn.addEventListener('click', (e) => {
         e.stopPropagation();
-        const course = e.target.dataset.course;
+        const course = e.currentTarget.dataset.course;
         navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
       });
     });
@@ -966,20 +966,21 @@ function renderDashboard() {
     let actionButtons;
     if (isCompleted) {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn" data-action="download" data-index="${i}">Descargar</button>
-        <button class="btn-secondary btn-sm student-action-btn" data-action="redo" data-index="${i}">Rehacer</button>
-        <button class="btn-danger btn-sm student-action-btn" data-action="clear" data-index="${i}">Borrar</button>
+        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="download" data-index="${i}" title="Descargar">${icon('download', 14)}</button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="modify" data-index="${i}" title="Modificar informe">${icon('sliders-horizontal', 14)}</button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="redo" data-index="${i}" title="Rehacer">${icon('refresh-cw', 14)}</button>
+        <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar">${icon('trash-2', 14)}</button>
       `;
     } else if (isIncompleto) {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn" data-action="continue" data-index="${i}">Continuar</button>
-        <button class="btn-secondary btn-sm student-action-btn" data-action="generate" data-index="${i}">Generar informe</button>
-        <button class="btn-danger btn-sm student-action-btn" data-action="clear" data-index="${i}">Borrar</button>
+        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="continue" data-index="${i}" title="Continuar">${icon('play', 14)}</button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="generate" data-index="${i}" title="Generar informe">${icon('file-plus', 14)}</button>
+        <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar">${icon('trash-2', 14)}</button>
       `;
     } else {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn" data-action="complete" data-index="${i}">Comenzar</button>
-        <button class="btn-secondary btn-sm student-action-btn" data-action="quick" data-index="${i}">Generar rapido</button>
+        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="complete" data-index="${i}" title="Comenzar">${icon('play', 14)}</button>
+        <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="quick" data-index="${i}" title="Generar rapido">${icon('zap', 14)}</button>
       `;
     }
 
@@ -996,8 +997,8 @@ function renderDashboard() {
 
   container.querySelectorAll('.student-action-btn').forEach(btn => {
     btn.addEventListener('click', async (e) => {
-      const action = e.target.dataset.action;
-      const idx = parseInt(e.target.dataset.index);
+      const action = e.currentTarget.dataset.action;
+      const idx = parseInt(e.currentTarget.dataset.index);
       const student = allStudents[idx];
       currentStudentIndex = idx;
 
@@ -1039,6 +1040,44 @@ function renderDashboard() {
         showWizard();
         goToWizardStep(2);
         await loadVariants();
+      } else if (action === 'modify') {
+        const reportFilename = getReportFilename(student.nombre_completo);
+        let reportContent = null;
+        const cachedReport = sessionReports.find(r => r.studentIndex === idx);
+        if (cachedReport && cachedReport.report_content) {
+          reportContent = cachedReport.report_content;
+          if (cachedReport.variant) selectedVariant = cachedReport.variant;
+        } else {
+          try {
+            const data = await apiGet(`/reports/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(reportFilename)}`);
+            reportContent = data.content;
+            const existingIndex = sessionReports.findIndex(r => r.studentIndex === idx);
+            const reportData = {
+              studentIndex: idx,
+              nombre_completo: student.nombre_completo,
+              filename: student.filename,
+              report_content: reportContent,
+              completed: true,
+              variant: null
+            };
+            if (existingIndex >= 0) {
+              sessionReports[existingIndex] = reportData;
+            } else {
+              sessionReports.push(reportData);
+            }
+          } catch (err) {
+            alert('Error cargando informe: ' + err.message);
+            return;
+          }
+        }
+        currentStudentIndex = idx;
+        await loadStudentContext();
+        $('report-preview').textContent = reportContent;
+        show($('report-actions'));
+        show($('customization-panel'));
+        hide($('btn-next-student'));
+        goToWizardStep(3);
+        showWizard();
       } else if (action === 'clear') {
         if (!confirm(`Borrar todas las respuestas de ${student.nombre_completo}?`)) return;
         try {
@@ -1741,7 +1780,8 @@ async function doGenerateReport() {
       report_content: data.report_content,
       saved_path: data.saved_path,
       completed: true,
-      answers: { ...questionnaireAnswers }
+      answers: { ...questionnaireAnswers },
+      variant: selectedVariant
     };
 
     if (existingIndex >= 0) {
@@ -1769,6 +1809,88 @@ async function doGenerateReport() {
   } catch (err) {
     setLoading(false);
     alert('Error generando informe: ' + err.message);
+  }
+}
+
+// NOTE: doRegenerateWithCustomization is below
+
+function updateCustomizationText() {
+  const parts = [];
+  const formality = parseInt($('slider-formality').value);
+  const empathy = parseInt($('slider-empathy').value);
+  const detail = parseInt($('slider-detail').value);
+  const naturalness = parseInt($('slider-naturalness').value);
+
+  if (formality > 70) parts.push('tono más formal');
+  else if (formality < 30) parts.push('tono más casual');
+
+  if (empathy > 70) parts.push('más empático');
+  else if (empathy < 30) parts.push('más objetivo');
+
+  if (detail > 70) parts.push('más detallado');
+  else if (detail < 30) parts.push('más conciso');
+
+  if (naturalness > 70) parts.push('más conversacional');
+  else if (naturalness < 30) parts.push('más estructurado');
+
+  const textarea = $('customization-text');
+  if (!textarea.value.trim()) {
+    textarea.value = parts.join(', ');
+  }
+}
+
+async function doRegenerateWithCustomization() {
+  const student = allStudents[currentStudentIndex];
+  if (!student || !selectedCourse) {
+    alert('Faltan datos para generar el informe.');
+    return;
+  }
+  const variant = selectedVariant || 'A';
+
+  const answers = collectAnswers();
+  const model = selectedModel;
+  const contents = $('course-contents').value;
+  const customization = $('customization-text').value.trim() || null;
+
+  setLoading(true);
+  try {
+    const data = await apiPost('/reports/generate', {
+      course: selectedCourse,
+      filename: student.filename || `${student.nombre_completo.replace(/\s+/g, '_')}.md`,
+      contents,
+      answers,
+      variant_id: variant,
+      model,
+      customization
+    });
+
+    const existingIndex = sessionReports.findIndex(r => r.studentIndex === currentStudentIndex);
+    const reportData = {
+      studentIndex: currentStudentIndex,
+      nombre_completo: student.nombre_completo,
+      filename: student.filename || `${student.nombre_completo.replace(/\s+/g, '_')}.md`,
+      report_content: data.report_content,
+      saved_path: data.saved_path,
+      completed: true,
+      answers: { ...questionnaireAnswers },
+      variant: selectedVariant
+    };
+
+    if (existingIndex >= 0) {
+      sessionReports[existingIndex] = reportData;
+    } else {
+      sessionReports.push(reportData);
+    }
+
+    const refreshedSession = await apiGet(`/courses/${encodeURIComponent(selectedCourse)}/session`);
+    courseSessions[selectedCourse] = refreshedSession;
+
+    $('report-preview').textContent = data.report_content;
+    show($('report-actions'));
+    setLoading(false);
+  } catch (err) {
+    setLoading(false);
+    alert('Error regenerando informe: ' + err.message);
   }
 }
 
@@ -2017,10 +2139,46 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Wizard - Step 3 (Report)
   $('btn-download').addEventListener('click', downloadReport);
+  $('btn-modify-report').addEventListener('click', () => {
+    const panel = $('customization-panel');
+    if (panel.classList.contains('hidden')) {
+      show(panel);
+    } else {
+      hide(panel);
+    }
+  });
   $('btn-next-student').addEventListener('click', goToNextStudent);
   $('btn-go-dashboard').addEventListener('click', hideWizard);
   $('btn-finish').addEventListener('click', () => {
     openCoursesMenu();
+  });
+
+  // Customization panel
+  $('btn-regenerate-custom').addEventListener('click', doRegenerateWithCustomization);
+
+  // Length buttons
+  document.querySelectorAll('.length-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      selectedVariant = e.target.dataset.length;
+      document.querySelectorAll('.length-btn').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      doRegenerateWithCustomization();
+    });
+  });
+
+  // Sliders
+  ['formality', 'empathy', 'detail', 'naturalness'].forEach(name => {
+    const slider = $(`slider-${name}`);
+    if (slider) {
+      slider.addEventListener('input', updateCustomizationText);
+    }
+  });
+  $('customization-text').addEventListener('input', () => {
+    const hasText = $('customization-text').value.trim().length > 0;
+    ['formality', 'empathy', 'detail', 'naturalness'].forEach(name => {
+      const slider = $(`slider-${name}`);
+      if (slider) slider.disabled = hasText;
+    });
   });
 
   // Dashboard actions

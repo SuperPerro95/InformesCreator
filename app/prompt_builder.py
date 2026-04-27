@@ -46,8 +46,9 @@ CONTENT_INDICATORS = [
 ]
 
 
-def build_system_prompt(variant: ReportVariant) -> str:
+def build_system_prompt(variant: ReportVariant, customization: Optional[str] = None) -> str:
     """Construye el system prompt para Ollama."""
+    custom_section = f"\n{customization}\n" if customization else ""
     return f"""Sos docente de este alumno.
 Redactá un informe de avance en primera persona, con tono descriptivo y objetivo.
 NO lo redactes como carta dirigida a la familia. No uses "su hijo/a", "les informamos", etc.
@@ -55,7 +56,7 @@ El informe debe ser conciso: usá la menor cantidad de palabras posible.
 Debe sonar como escrito por un docente humano, no por una inteligencia artificial.
 El objetivo es registrar el avance del alumno de manera clara y breve.
 
-{variant.tone_instructions}
+{variant.tone_instructions}{custom_section}
 """
 
 

@@ -81,6 +81,7 @@ class ReportGenerateRequest(BaseModel):
     answers: QuestionnaireAnswers
     variant_id: str
     model: Optional[str] = None
+    customization: Optional[str] = None
 
 
 class ReportResponse(BaseModel):
@@ -366,7 +367,7 @@ def generate_report_endpoint(req: ReportGenerateRequest):
         raise HTTPException(status_code=400, detail="Variante inválida")
 
     # Construir prompts
-    system_prompt = build_system_prompt(variant)
+    system_prompt = build_system_prompt(variant, req.customization)
     answers_dict = req.answers.model_dump()
     user_prompt = build_user_prompt(student, req.contents, answers_dict, variant, req.answers.attendance)
 

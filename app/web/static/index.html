@@ -333,10 +333,45 @@
                     <p>Generando informe...</p>
                 </div>
                 <div id="report-actions" class="hidden">
-                    <button id="btn-download" class="btn-primary">Descargar este informe</button>
-                    <button id="btn-next-student" class="btn-primary">Siguiente alumno</button>
-                    <button id="btn-go-dashboard" class="btn-secondary">Volver al curso</button>
-                    <button id="btn-finish" class="btn-secondary">Finalizar</button>
+                    <button id="btn-download" class="btn-primary icon-btn" title="Descargar informe"><i data-lucide="download" style="width:18px;height:18px;"></i></button>
+                    <button id="btn-modify-report" class="btn-secondary icon-btn" title="Modificar informe"><i data-lucide="sliders-horizontal" style="width:18px;height:18px;"></i></button>
+                    <button id="btn-next-student" class="btn-primary icon-btn" title="Siguiente alumno"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i></button>
+                    <button id="btn-go-dashboard" class="btn-secondary icon-btn" title="Volver al curso"><i data-lucide="undo-2" style="width:18px;height:18px;"></i></button>
+                    <button id="btn-finish" class="btn-secondary icon-btn" title="Finalizar"><i data-lucide="check" style="width:18px;height:18px;"></i></button>
+                </div>
+                <div id="customization-panel" class="hidden">
+                    <div class="customization-card">
+                        <h4>Personalizar informe</h4>
+                        <div class="length-buttons">
+                            <button class="btn-secondary btn-sm length-btn" data-length="C">Breve (~50-80)</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="A">Formal (~100-150)</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="B">Detallado (~200-250)</button>
+                        </div>
+                        <div class="sliders-group">
+                            <div class="slider-row">
+                                <label>Formalidad</label>
+                                <input type="range" id="slider-formality" min="0" max="100" value="50">
+                                <span class="slider-labels"><span>Casual</span><span>Formal</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <label>Empatía</label>
+                                <input type="range" id="slider-empathy" min="0" max="100" value="50">
+                                <span class="slider-labels"><span>Objetivo</span><span>Empático</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <label>Detalle</label>
+                                <input type="range" id="slider-detail" min="0" max="100" value="50">
+                                <span class="slider-labels"><span>Conciso</span><span>Desarrollado</span></span>
+                            </div>
+                            <div class="slider-row">
+                                <label>Naturalidad</label>
+                                <input type="range" id="slider-naturalness" min="0" max="100" value="50">
+                                <span class="slider-labels"><span>Estructurado</span><span>Conversacional</span></span>
+                            </div>
+                        </div>
+                        <textarea id="customization-text" class="customization-textarea" placeholder="Ej: más empático, usa metáforas, tono más formal..."></textarea>
+                        <button id="btn-regenerate-custom" class="btn-primary"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i> Regenerar con personalización</button>
+                    </div>
                 </div>
             </section>
         </main>
