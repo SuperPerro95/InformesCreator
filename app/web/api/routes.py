@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 import sys
 import tempfile
@@ -26,6 +28,7 @@ from course_manager import (
     save_student_observations,
 )
 from ollama_client import generate_report
+from paths import user_data_path
 from prompt_builder import build_system_prompt, build_user_prompt
 from report_saver import save_report
 from setup_ollama import get_available_models, is_ollama_installed, is_ollama_running
@@ -108,11 +111,106 @@ class SaveObservationsRequest(BaseModel):
     observaciones: List[StudentObservation]
 
 
+class RegisterRequest(BaseModel):
+    username: str
+    password: str
+    display_name: Optional[str] = None
+
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+
+class ProfileResponse(BaseModel):
+    username: str
+    display_name: Optional[str] = None
+
+
+# ============== Profile Helpers ==============
+
+PROFILE_FILE = "profile.json"
+
+
+def _get_profile_path() -> Path:
+    return user_data_path(PROFILE_FILE)
+
+
+def _hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def _load_profile() -> Optional[Dict]:
+    path = _get_profile_path()
+    if path.exists():
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return None
+
+
+def _save_profile(profile: Dict) -> None:
+    path = _get_profile_path()
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(profile, f, indent=4, ensure_ascii=False)
+
+
 # ============== Endpoints ==============
 
 @router.get("/health")
 def health():
     return {"status": "ok"}
+
+
+@router.post("/auth/register")
+def register(req: RegisterRequest):
+    """Crea el perfil único de la app. Solo funciona si no existe uno previo."""
+    if _load_profile():
+        raise HTTPException(status_code=400, detail="Ya existe un perfil. Usá /auth/login.")
+    if not req.username or not req.password:
+        raise HTTPException(status_code=400, detail="Usuario y contraseña requeridos.")
+    profile = {
+        "username": req.username,
+        "password_hash": _hash_password(req.password),
+        "display_name": req.display_name or req.username,
+    }
+    _save_profile(profile)
+    return {"ok": True, "username": profile["username"]}
+
+
+@router.post("/auth/login")
+def login(req: LoginRequest):
+    """Valida credenciales contra el perfil guardado."""
+    profile = _load_profile()
+    if not profile:
+        raise HTTPException(status_code=400, detail="No existe perfil. Registrate primero.")
+    if profile["username"] != req.username:
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+    if profile["password_hash"] != _hash_password(req.password):
+        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+    return {"ok": True, "username": profile["username"], "display_name": profile.get("display_name")}
+
+
+@router.get("/auth/me", response_model=ProfileResponse)
+def me():
+    """Devuelve datos del perfil sin el hash de contraseña."""
+    profile = _load_profile()
+    if not profile:
+        raise HTTPException(status_code=404, detail="No hay perfil creado.")
+    return {
+        "username": profile["username"],
+        "display_name": profile.get("display_name"),
+    }
+
+
+@router.delete("/courses/{course}")
+def delete_course(course: str):
+    """Elimina el JSON de sesión de un curso. No borra la carpeta ni los .md."""
+    from course_manager import _slugify
+    slug = _slugify(course)
+    session_file = user_data_path(f"curso_{slug}.json")
+    if session_file.exists():
+        session_file.unlink()
+    return {"ok": True}
 
 
 @router.get("/ollama/status", response_model=OllamaStatusResponse)
@@ -415,6 +513,14 @@ def get_config():
 
 @router.post("/config")
 def update_config(updates: Dict[str, str]):
+    # Si se envia base_path sin output_dir, auto-setear output_dir dentro de base_path
+    if "base_path" in updates and "output_dir" not in updates:
+        from pathlib import Path
+        bp = Path(updates["base_path"])
+        if bp.is_absolute():
+            updates["output_dir"] = str(bp / "Informes")
+        else:
+            updates["output_dir"] = str(Path(config.base_path) / bp / "Informes")
     for key, value in updates.items():
         config.set(key, value)
     return {"ok": True}

@@ -420,6 +420,20 @@ class InstallWizard(tk.Tk):
             command=self._check_ollama,
         )
 
+        self.btn_skip_ollama = tk.Button(
+            self.content_frame,
+            text="Configurar despues →",
+            font=("Inter", 10, "bold"),
+            bg="#f3f4f6",
+            fg="#374151",
+            activebackground="#e5e7eb",
+            bd=0,
+            padx=15,
+            pady=5,
+            cursor="hand2",
+            command=self._skip_ollama,
+        )
+
         self.btn_next.config(state=tk.DISABLED)
         self._check_ollama()
 
@@ -446,6 +460,7 @@ class InstallWizard(tk.Tk):
                 text="Ollama es necesario para generar informes con IA. Hace clic en 'Instalar Ollama'."
             )
             self.btn_install_ollama.pack(anchor=tk.W, pady=15)
+            self.btn_skip_ollama.pack(anchor=tk.W, pady=(5, 0))
             self.btn_next.config(state=tk.DISABLED)
             return
 
@@ -463,6 +478,7 @@ class InstallWizard(tk.Tk):
                     self.ollama_status_lbl.config(
                         text="✅ Ollama instalado y servidor activo", fg="#16a34a"
                     )
+                    self.btn_skip_ollama.pack_forget()
                     self.btn_next.config(state=tk.NORMAL)
                     return
         except Exception:
@@ -475,7 +491,24 @@ class InstallWizard(tk.Tk):
             text="Hace clic en 'Iniciar servidor Ollama' para levantarlo."
         )
         self.btn_start_ollama.pack(anchor=tk.W, pady=15)
+        self.btn_skip_ollama.pack(anchor=tk.W, pady=(5, 0))
         self.btn_next.config(state=tk.DISABLED)
+
+    def _skip_ollama(self):
+        self.server_running = False
+        self.ollama_cmd = None
+        self.ollama_status_lbl.config(
+            text="ℹ️ Ollama se configurara despues", fg="#2563eb"
+        )
+        self.ollama_detail_lbl.config(
+            text="Podes instalarlo mas tarde desde el launcher."
+        )
+        self.btn_install_ollama.pack_forget()
+        self.btn_start_ollama.pack_forget()
+        self.btn_retry_ollama.pack_forget()
+        self.btn_done_ollama.pack_forget()
+        self.btn_skip_ollama.pack_forget()
+        self.btn_next.config(state=tk.NORMAL)
 
     def _thread_install_ollama(self):
         self.btn_install_ollama.config(state=tk.DISABLED, text="Instalando...")
@@ -509,6 +542,7 @@ class InstallWizard(tk.Tk):
                     self.btn_install_ollama.pack_forget(),
                     self.btn_retry_ollama.pack_forget(),
                     self.btn_done_ollama.pack_forget(),
+                    self.btn_skip_ollama.pack_forget(),
                     self._check_ollama(),
                 ))
             else:
@@ -708,6 +742,20 @@ class InstallWizard(tk.Tk):
             command=self._thread_login_cloud,
         )
 
+        self.btn_pull_cloud = tk.Button(
+            self.content_frame,
+            text="Reintentar descargar modelos cloud",
+            font=("Inter", 11, "bold"),
+            bg="#2563eb",
+            fg="#ffffff",
+            activebackground="#1d4ed8",
+            bd=0,
+            padx=20,
+            pady=8,
+            cursor="hand2",
+            command=self._check_model,
+        )
+
         self.btn_next.config(state=tk.DISABLED)
         self.btn_continue_top.config(state=tk.DISABLED)
         self._check_model()
@@ -718,6 +766,7 @@ class InstallWizard(tk.Tk):
         )
         self.btn_skip_models.pack_forget()
         self.btn_login_cloud.pack_forget()
+        self.btn_pull_cloud.pack_forget()
         for row in self.cloud_models_frame.winfo_children():
             for widget in row.winfo_children():
                 if isinstance(widget, tk.Button):
@@ -861,25 +910,44 @@ class InstallWizard(tk.Tk):
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
 
+            output_lines = []
             for line in proc.stdout:
                 line = line.strip()
                 if line:
+                    output_lines.append(line)
                     self.after(0, lambda l=line: self.model_detail_lbl.config(text=l))
 
             proc.wait(timeout=600)
+            output_text = "\n".join(output_lines)
+            auth_error = "401" in output_text or "Unauthorized" in output_text or "unauthorized" in output_text
             if proc.returncode != 0:
+                if auth_error:
+                    raise RuntimeError("Se requiere iniciar sesion en Ollama Cloud")
                 raise RuntimeError(f"ollama pull fallo para {model} con codigo {proc.returncode}")
 
             self.after(0, self._check_model)
 
         except Exception as e:
-            self.after(0, lambda: (
-                self.model_status_lbl.config(
-                    text=f"❌ Error descargando {model}: {e}", fg="#dc2626"
-                ),
-                self.btn_login_cloud.pack(anchor=tk.W, pady=(0, 10)),
-                self._check_model(),
-            ))
+            err_msg = str(e)
+            if "Se requiere iniciar sesion" in err_msg:
+                self.after(0, lambda: (
+                    self.model_status_lbl.config(
+                        text="⚠️ Login de Ollama Cloud requerido", fg="#d97706"
+                    ),
+                    self.model_detail_lbl.config(
+                        text="Hace clic en 'Login en Ollama Cloud' y segui las instrucciones en el navegador."
+                    ),
+                    self.btn_login_cloud.pack(anchor=tk.W, pady=(0, 10)),
+                    self.btn_pull_cloud.pack(anchor=tk.W, pady=(0, 10)),
+                    self._check_model(),
+                ))
+            else:
+                self.after(0, lambda: (
+                    self.model_status_lbl.config(
+                        text=f"❌ Error descargando {model}: {e}", fg="#dc2626"
+                    ),
+                    self._check_model(),
+                ))
 
     def _thread_install_local(self):
         self.btn_install_local.config(state=tk.DISABLED, text="Descargando...")

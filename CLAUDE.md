@@ -1,120 +1,111 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) working with code in this repository.
 
 ## Project Overview
 
-InformesCreator is a Python CLI application that generates student progress reports ("informes de avance") for a teacher. It combines:
-1. Existing class notes stored as per-student markdown files
-2. An interactive questionnaire filled per student
-3. AI text generation via the Ollama API (`/api/chat`)
-
-The target user is an English teacher at ESN5 school in Argentina. The application runs natively on Windows.
-
-## Input Data Structure
-
-Student notes are markdown files located at:
-```
-E:\Google_Drive\Base\Mi escuela\CURSOS\<Course>\Alumnos\<LastName_FirstName>.md
-```
-
-Each file contains:
-- Student name and course in the header (`# Aguilar Carus, SANTINO`)
-- Course and list number (`**Curso:** 1ro B ESN5 | **Lista Nº:** 1`)
-- An observations table with columns: Fecha, Código, Tipo, Comentario
-- A summary section with total absences, consecutive absences, and last update date
-
-## Architecture
-
-The codebase follows a modular architecture with clear separation of concerns:
-
-- `main.py` — CLI entry point and workflow orchestration
-- `config.py` — Configuration management via `config.json`
-- `course_manager.py` — Course discovery, content persistence, and student listing
-- `student_parser.py` — Markdown parsing into structured data (`Student`, `Observation` classes)
-- `questionnaire.py` — Interactive questionnaire for pedagogical/socioemotional data
-- `prompt_builder.py` — Prompt construction for Ollama with style variants
-- `ollama_client.py` — HTTP client for Ollama's `/api/chat` endpoint
-- `report_saver.py` — Report output to markdown files
-- `variants.py` — Report style variant management (formal, detailed, brief, custom)
-
-## Configuration
-
-Configuration is stored in `config.json` (auto-created with defaults):
-```json
-{
-    "base_path": "E:\\Google_Drive\\Base\\Mi escuela\\CURSOS",
-    "ollama_url": "http://localhost:11434",
-    "model": "gemma3",
-    "output_dir": "Informes",
-    "default_variant": "A"
-}
-```
-
-Course contents are persisted to `curso_<slug>.json` files so the teacher only enters them once per course.
-
-## Report Style Variants
-
-Three predefined variants exist:
-- **A (Formal y conciso)**: ~100-150 words, objective, standard
-- **B (Detallado)**: ~200-250 words, more developed
-- **C (Breve y directo)**: ~50-80 words, essential only
-
-Custom variants can be defined in `variants.json`.
-
-## Prompt Requirements
-
-All reports must be:
-- Written in **first person**, descriptive and objective tone
-- **NOT** directed to the student's family (no "su hijo/a", "les informamos")
-- As concise as possible
-- Sounding like a human teacher wrote them, not AI-generated
-
-## API Integration
-
-Ollama is called via POST to `/api/chat` with the message format:
-```json
-{
-    "model": "gemma3",
-    "messages": [
-        {"role": "system", "content": "..."},
-        {"role": "user", "content": "..."}
-    ]
-}
-```
-
-## Dependencies
-
-Managed via `requirements.txt`:
-- `requests` for HTTP calls
-- `rich` for enhanced CLI output (optional but planned)
-
-## Testing
-
-Tests live in the `tests/` directory. The plan specifies these test modules:
-- `test_student_parser.py`
-- `test_course_manager.py`
-- `test_prompt_builder.py`
-- `test_ollama_client.py` (using mocks)
+InformesCreator — Python desktop/web app for Argentine teachers to generate student progress reports using Ollama AI. Runs as CLI wizard (`app/main.py`) or local FastAPI web server (`app/web/main.py`) with vanilla JS SPA frontend. Primary distribution target is Windows, with `.bat`/`.vbs` launchers and Tkinter-based installer GUI (`app/install_gui.py`).
 
 ## Common Commands
 
-Install dependencies:
-```
-pip install -r requirements.txt
-```
-
-Run the application:
-```
-python main.py
+Run web server (development):
+```bash
+python app/web/main.py
+# or
+uvicorn app.web.main:app --host 0.0.0.0 --port 8080 --reload
 ```
 
-Run a specific test:
-```
-python -m pytest tests/test_student_parser.py -v
-```
-
-Run all tests:
-```
+Run tests (all):
+```bash
 python -m pytest tests/ -v
 ```
+
+Run single test file:
+```bash
+python -m pytest tests/test_web_api.py -v
+```
+
+Generate Windows distribution ZIP:
+```bash
+python build_dist.py
+```
+
+Build executable (requires PyInstaller):
+```bash
+python app/build_exe.py
+```
+
+## Architecture
+
+### Dual Entry Points
+- **CLI**: `app/main.py` — interactive terminal wizard. Imports modules directly from `app/`.
+- **Web**: `app/web/main.py` — FastAPI app. Mounts `app/web/api/routes.py` at `/api` and serves `app/web/static/` as static SPA. Auto-opens browser on start.
+
+### Path Resolution (`app/paths.py`)
+All file I/O goes through `paths.py`. Key directories:
+- `root_path()` → repo root
+- `user_data_path()` → `user_data/` (config, course sessions, profile)
+- `reports_path()` → `Informes/` (generated reports)
+
+`sys.path` mutated at module load time so imports work regardless of cwd.
+
+### Configuration (`app/config.py`)
+`Config` — singleton-like JSON manager. **Critical behavior**:
+- When running from PyInstaller `.exe`, config lives in `%APPDATA%\InformesCreator\config.json` (Windows) or `~/.config/informescreator/` (Linux/macOS).
+- In development, config lives in `user_data/config.json`.
+- `config.set("base_path", ...)` resolves relative paths against `root_path()`.
+
+### Data Model
+
+**Course folder structure** (teacher provides this):
+```
+Mi escuela/CURSOS/
+  <Curso>/
+    Alumnos/
+      <Apellido_Nombre>.md
+```
+
+**Student markdown** (`app/student_parser.py`): Each `.md` has header, observations table (codes P, A, P-EXC, P-X, T), and summary section. `parse_student_file()` returns `Student` dataclass.
+
+**Course session** (`app/course_manager.py`): Per-course state stored in `user_data/curso_<slug>.json`. Contains:
+- `contenidos` — course syllabus text
+- `respuestas` — questionnaire answers per student filename
+- `progreso` — list of completed students
+
+Core persistence layer for web wizard flow.
+
+### Ollama Integration (`app/setup_ollama.py`, `app/ollama_client.py`)
+- `setup_ollama.py` detects Ollama executable (PATH + common Windows paths), checks if server running, can auto-start.
+- Web API exposes `/api/ollama/status` for frontend to check state.
+- Default model: `gemma4:31b-cloud` (cloud model, requires `ollama login`). Local models like `gemma3` also supported.
+- `generate_report()` in `ollama_client.py` calls Ollama chat API with system prompt + user prompt built from student data.
+
+### Prompt Builder (`app/prompt_builder.py`)
+Builds prompts from questionnaire answers. Uses frequency maps (1=NUNCA…4=SIEMPRE for pedagogical/socioemotional, 1=No Logrado…3=Logrado for content). Attendance warning if absences exceed 30%.
+
+### Variants (`app/variants.py`)
+Report variants (Formal, Detallado, Breve) hardcoded. Custom variants added via `user_data/variants.json` — see README.md for format. Each variant defines `tone_instructions` and `word_count_target`.
+
+### Authentication
+Web app has single-user local auth system:
+- `POST /api/auth/register` — creates `user_data/profile.json` (hashed password). Only works once.
+- `POST /api/auth/login` — validates credentials.
+- No sessions/tokens; frontend checks `profile.json` existence to decide login/register flow.
+
+### Windows Distribution
+- `install_windows.bat` — legacy console installer (installs Python, Ollama, deps, model).
+- `install_gui.bat` — preferred installer; runs `app/install_gui.py` via `pythonw` (no console window).
+- `InformesCreator.bat` — daily launcher; activates venv, starts Ollama server if needed, pulls model if missing, then runs `uvicorn app.web.main:app`.
+- `InformesCreator.vbs` — silent launcher that calls `.bat` without terminal window.
+- `app/launcher.py` — Tkinter GUI launcher (alternative to `.bat`).
+- `app/updater.py` — Tkinter updater fetches GitHub releases and hot-swaps `app/`.
+
+Venv for installed apps lives at `%LOCALAPPDATA%\InformesCreator\.venv\`.
+
+## Important Patterns
+
+- **Course slugification**: `course_manager._slugify()` lowercases and replaces spaces with underscores. Used to name session JSON files.
+- **Report output**: `report_saver.save_report()` writes to `<output_dir>/<Curso>/Informe_<Apellido>_<Nombre>.md`.
+- **Frontend API calls**: SPA hits `/api/...`. FastAPI router mounted with `prefix="/api"`.
+- **Folder picker**: Web backend has `/api/pick-folder` which tries Tkinter → PowerShell → Zenity to open native folder dialog.
+- **Git ignore**: `user_data/`, `Informes/`, `.venv/`, `dist/`, `build/` ignored. Never commit user data or generated reports.

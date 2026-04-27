@@ -388,6 +388,10 @@ let sessionReports = [];
 let questionnaireAnswers = {};
 let currentQuestionIndex = 0;
 
+// Auth state
+let authState = { loggedIn: false, username: '' };
+let courseToDelete = null;
+
 // ===================== Router =====================
 let isNavigating = false;
 
@@ -401,6 +405,36 @@ function navigateTo(hash) {
 
 function handleHashChange() {
   const hash = window.location.hash || '#/';
+
+  // Login
+  if (hash === '#/login') {
+    show($('login-screen'));
+    hide($('register-screen'));
+    hide($('hero-screen'));
+    hide($('onboarding-overlay'));
+    hide(document.querySelector('header'));
+    hide($('courses-menu'));
+    hide($('course-view'));
+    hide($('wizard'));
+    updateHelpButton('');
+    currentHelpScreen = '';
+    return;
+  }
+
+  // Register
+  if (hash === '#/register') {
+    hide($('login-screen'));
+    show($('register-screen'));
+    hide($('hero-screen'));
+    hide($('onboarding-overlay'));
+    hide(document.querySelector('header'));
+    hide($('courses-menu'));
+    hide($('course-view'));
+    hide($('wizard'));
+    updateHelpButton('');
+    currentHelpScreen = '';
+    return;
+  }
 
   // Hero screen
   if (hash === '' || hash === '#' || hash === '#/') {
@@ -728,7 +762,52 @@ function updateFolderIndicator(path) {
   }
 }
 
-function completeOnboarding() {
+async function completeOnboarding() {
+  const folderOption = document.querySelector('input[name="folder-option"]:checked').value;
+
+  if (folderOption === 'existing') {
+    const basePath = $('base-path').value.trim();
+    if (!basePath) {
+      alert('Ingresa la ruta base donde esta la carpeta CURSOS.');
+      return;
+    }
+    try {
+      await apiPost('/config', { base_path: basePath });
+      systemStatus.basePath = basePath;
+    } catch (err) {
+      alert('Error guardando la ruta: ' + err.message);
+      return;
+    }
+  } else {
+    const courseName = $('new-course-name').value.trim();
+    const rawNames = $('new-students-list').value.trim();
+    if (!courseName) {
+      alert('Ingresa un nombre para el curso.');
+      return;
+    }
+    if (!rawNames) {
+      alert('Ingresa al menos un alumno.');
+      return;
+    }
+    const students = parseStudentNames(rawNames);
+    if (students.length === 0) {
+      alert('No se pudieron detectar nombres de alumnos.');
+      return;
+    }
+    setLoading(true);
+    try {
+      await apiPost('/config', { base_path: './data/CURSOS' });
+      await apiPost('/courses/create', { course_name: courseName, students });
+      alert(`Curso "${courseName}" creado con ${students.length} alumnos.`);
+    } catch (err) {
+      alert('Error creando curso: ' + err.message);
+      setLoading(false);
+      return;
+    } finally {
+      setLoading(false);
+    }
+  }
+
   onboardingComplete = true;
   hide($('onboarding-overlay'));
   show(document.querySelector('header'));
@@ -773,6 +852,9 @@ async function loadCoursesGrid() {
 
       return `
         <div class="course-card ${hasData ? 'has-data' : ''}" data-course="${c}">
+          <button class="btn-ghost btn-sm course-delete-btn" data-course="${c}" title="Eliminar curso" style="position:absolute;top:8px;right:8px;padding:4px;line-height:1;">
+            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
+          </button>
           ${hasData ? '<div class="badge badge-warning">Tiene datos guardados</div>' : ''}
           <div class="course-card-name">${c}</div>
           <div class="course-card-progress">${existingReports} informe(s) generado(s)</div>
@@ -791,6 +873,16 @@ async function loadCoursesGrid() {
         navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
       });
     });
+
+    container.querySelectorAll('.course-delete-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const course = e.currentTarget.dataset.course;
+        openDeleteCourseModal(course);
+      });
+    });
+
+    if (window.lucide) lucide.createIcons();
   } catch (err) {
     alert('Error cargando cursos: ' + err.message);
   } finally {
@@ -1758,9 +1850,11 @@ document.addEventListener('DOMContentLoaded', () => {
     lucide.createIcons();
   }
 
-  // Hero screen + background preload
-  showHero();
-  preloadSystemStatus();
+  loadAuthState();
+  if (authState.loggedIn) {
+    showHero();
+    preloadSystemStatus();
+  }
 
   // Hero CTA
   $('btn-hero-cta').addEventListener('click', async () => {
@@ -1946,4 +2040,202 @@ document.addEventListener('DOMContentLoaded', () => {
   if (window.location.hash && window.location.hash !== '#/' && window.location.hash !== '#') {
     handleHashChange();
   }
+
+  // Profile modal
+  $('btn-profile').addEventListener('click', openProfileModal);
+  $('btn-close-profile').addEventListener('click', closeProfileModal);
+  $('btn-change-folder').addEventListener('click', doChangeFolder);
+  $('btn-logout').addEventListener('click', doLogout);
+  $('profile-modal').addEventListener('click', (e) => {
+    if (e.target === $('profile-modal') || e.target.classList.contains('help-overlay')) {
+      closeProfileModal();
+    }
+  });
+
+  // Delete course modal
+  $('btn-close-delete-course').addEventListener('click', closeDeleteCourseModal);
+  $('btn-cancel-delete-course').addEventListener('click', closeDeleteCourseModal);
+  $('btn-confirm-delete-course').addEventListener('click', doConfirmDeleteCourse);
+  $('delete-course-modal').addEventListener('click', (e) => {
+    if (e.target === $('delete-course-modal') || e.target.classList.contains('help-overlay')) {
+      closeDeleteCourseModal();
+    }
+  });
+
+  // Login / Register
+  $('btn-login').addEventListener('click', doLogin);
+  $('btn-register').addEventListener('click', doRegister);
+  $('link-register').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/register'); });
+  $('link-login').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/login'); });
+
+  // Auth: init
+  initAuth();
 });
+
+// ===================== Auth =====================
+function loadAuthState() {
+  try {
+    const raw = localStorage.getItem('informescreator_auth');
+    if (raw) {
+      authState = JSON.parse(raw);
+    }
+  } catch (e) {
+    authState = { loggedIn: false, username: '' };
+  }
+}
+
+function saveAuthState() {
+  localStorage.setItem('informescreator_auth', JSON.stringify(authState));
+}
+
+async function initAuth() {
+  loadAuthState();
+  if (!authState.loggedIn) {
+    // No hay perfil? verificar con backend
+    try {
+      await apiGet('/auth/me');
+      // Hay perfil pero no esta logueado → ir a login
+      navigateTo('#/login');
+    } catch (err) {
+      // No hay perfil → ir a registro
+      navigateTo('#/register');
+    }
+    return;
+  }
+  // Logueado: mostrar username en header
+  const headerUsername = $('header-username');
+  if (headerUsername) headerUsername.textContent = authState.username;
+}
+
+async function doLogin() {
+  const username = $('login-username').value.trim();
+  const password = $('login-password').value;
+  const errorEl = $('login-error');
+  errorEl.textContent = '';
+  if (!username || !password) {
+    errorEl.textContent = 'Completa todos los campos.';
+    return;
+  }
+  setLoading(true);
+  try {
+    const res = await apiPost('/auth/login', { username, password });
+    authState = { loggedIn: true, username: res.username };
+    saveAuthState();
+    $('header-username').textContent = res.display_name || res.username;
+    hide($('login-screen'));
+    navigateTo('#/');
+    showHero();
+    preloadSystemStatus();
+  } catch (err) {
+    errorEl.textContent = 'Usuario o contrasena incorrectos.';
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function doRegister() {
+  const username = $('reg-username').value.trim();
+  const displayName = $('reg-display-name').value.trim();
+  const password = $('reg-password').value;
+  const confirm = $('reg-password-confirm').value;
+  const errorEl = $('register-error');
+  errorEl.textContent = '';
+  if (!username || !password) {
+    errorEl.textContent = 'Usuario y contrasena requeridos.';
+    return;
+  }
+  if (password !== confirm) {
+    errorEl.textContent = 'Las contrasenas no coinciden.';
+    return;
+  }
+  setLoading(true);
+  try {
+    await apiPost('/auth/register', { username, password, display_name: displayName || undefined });
+    authState = { loggedIn: true, username };
+    saveAuthState();
+    $('header-username').textContent = displayName || username;
+    hide($('register-screen'));
+    navigateTo('#/');
+    showHero();
+    preloadSystemStatus();
+  } catch (err) {
+    errorEl.textContent = err.message || 'Error creando perfil.';
+  } finally {
+    setLoading(false);
+  }
+}
+
+function doLogout() {
+  authState = { loggedIn: false, username: '' };
+  saveAuthState();
+  hide($('profile-modal'));
+  navigateTo('#/login');
+}
+
+// ===================== Profile Modal =====================
+async function openProfileModal() {
+  try {
+    const cfg = await apiGet('/config');
+    $('profile-folder-path').textContent = cfg.base_path || 'Sin configurar';
+  } catch (err) {
+    $('profile-folder-path').textContent = 'Error cargando config';
+  }
+  $('profile-username').textContent = authState.username || '';
+  show($('profile-modal'));
+}
+
+function closeProfileModal() {
+  hide($('profile-modal'));
+}
+
+async function doChangeFolder() {
+  try {
+    setLoading(true);
+    const data = await apiGet('/pick-folder');
+    setLoading(false);
+    if (data.error) {
+      alert('Error: ' + data.error);
+      return;
+    }
+    if (data.cancelled || !data.path) {
+      return;
+    }
+    await apiPost('/config', { base_path: data.path });
+    $('profile-folder-path').textContent = data.path;
+    alert('Carpeta actualizada.');
+    // Si estamos en cursos, recargar
+    if (!$('courses-menu').classList.contains('hidden')) {
+      loadCoursesGrid();
+    }
+  } catch (err) {
+    setLoading(false);
+    alert('Error cambiando carpeta: ' + err.message);
+  }
+}
+
+// ===================== Delete Course =====================
+function openDeleteCourseModal(courseName) {
+  courseToDelete = courseName;
+  $('delete-course-name').textContent = courseName;
+  show($('delete-course-modal'));
+}
+
+function closeDeleteCourseModal() {
+  courseToDelete = null;
+  hide($('delete-course-modal'));
+}
+
+async function doConfirmDeleteCourse() {
+  if (!courseToDelete) return;
+  setLoading(true);
+  try {
+    const res = await fetch(`/api/courses/${encodeURIComponent(courseToDelete)}`, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    closeDeleteCourseModal();
+    loadCoursesGrid();
+  } catch (err) {
+    alert('Error eliminando curso: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}

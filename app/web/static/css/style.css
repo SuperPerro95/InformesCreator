@@ -785,6 +785,7 @@ input[type="checkbox"] {
 }
 
 .course-card {
+  position: relative;
   background: var(--surface);
   border: 2px solid var(--border-default);
   border-radius: var(--radius-lg);

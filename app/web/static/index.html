@@ -22,6 +22,50 @@
     <div id="hero-bg"></div>
     <canvas id="bg-particles"></canvas>
     <div id="app">
+        <!-- ====== Login Screen ====== -->
+        <div id="login-screen" class="hero-screen hidden">
+            <div class="hero-content" style="max-width: 420px;">
+                <div class="hero-icon-wrap">
+                    <i data-lucide="graduation-cap" class="hero-icon"></i>
+                </div>
+                <h1 class="hero-title">InformesCreator</h1>
+                <p class="hero-subtitle">Iniciar sesion</p>
+                <div style="width:100%;text-align:left;">
+                    <label for="login-username">Usuario:</label>
+                    <input type="text" id="login-username" placeholder="Tu usuario" style="width:100%;">
+                    <label for="login-password">Contrasena:</label>
+                    <input type="password" id="login-password" placeholder="Tu contrasena" style="width:100%;">
+                </div>
+                <button id="btn-login" class="hero-cta" style="margin-top: 16px;">Entrar</button>
+                <p id="login-error" class="hint" style="color: var(--danger); margin-top: 8px;"></p>
+                <p class="hint" style="margin-top: 12px;">Primera vez? <a href="#/register" id="link-register">Crear perfil</a></p>
+            </div>
+        </div>
+
+        <!-- ====== Register Screen ====== -->
+        <div id="register-screen" class="hero-screen hidden">
+            <div class="hero-content" style="max-width: 420px;">
+                <div class="hero-icon-wrap">
+                    <i data-lucide="graduation-cap" class="hero-icon"></i>
+                </div>
+                <h1 class="hero-title">InformesCreator</h1>
+                <p class="hero-subtitle">Crear perfil</p>
+                <div style="width:100%;text-align:left;">
+                    <label for="reg-username">Usuario:</label>
+                    <input type="text" id="reg-username" placeholder="Elegi un usuario" style="width:100%;">
+                    <label for="reg-display-name">Nombre completo (opcional):</label>
+                    <input type="text" id="reg-display-name" placeholder="Ej: Marta Lopez" style="width:100%;">
+                    <label for="reg-password">Contrasena:</label>
+                    <input type="password" id="reg-password" placeholder="Elegi una contrasena" style="width:100%;">
+                    <label for="reg-password-confirm">Repeti la contrasena:</label>
+                    <input type="password" id="reg-password-confirm" placeholder="Repeti la contrasena" style="width:100%;">
+                </div>
+                <button id="btn-register" class="hero-cta" style="margin-top: 16px;">Crear perfil</button>
+                <p id="register-error" class="hint" style="color: var(--danger); margin-top: 8px;"></p>
+                <p class="hint" style="margin-top: 12px;"><a href="#/login" id="link-login">Ya tengo perfil</a></p>
+            </div>
+        </div>
+
         <!-- ====== Hero Screen ====== -->
         <div id="hero-screen" class="hero-screen">
             <div class="hero-content">
@@ -100,6 +144,9 @@
                 </div>
             </div>
             <div class="header-right">
+                <button id="btn-profile" class="btn-ghost btn-sm" title="Perfil" style="margin-right: 8px;">
+                    <i data-lucide="user" style="width:16px;height:16px;"></i> <span id="header-username"></span>
+                </button>
                 <button id="btn-mis-cursos" class="btn-primary btn-sm">
                     <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
                 </button>
@@ -317,6 +364,53 @@
                 </button>
             </div>
             <div id="help-content"></div>
+        </div>
+    </div>
+
+    <!-- ====== Modal de Perfil ====== -->
+    <div id="profile-modal" class="help-modal hidden">
+        <div class="help-overlay"></div>
+        <div class="help-panel" style="max-width: 420px;">
+            <div class="help-header">
+                <h3>Perfil</h3>
+                <button id="btn-close-profile" class="btn-ghost btn-sm">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div id="profile-content">
+                <p><strong>Usuario:</strong> <span id="profile-username"></span></p>
+                <p style="margin-top: 8px;"><strong>Carpeta actual:</strong></p>
+                <p id="profile-folder-path" class="hint" style="word-break: break-all;"></p>
+                <div style="margin-top: 16px; display: flex; gap: 8px; flex-direction: column;">
+                    <button id="btn-change-folder" class="btn-secondary btn-sm" style="justify-content: center;">
+                        <i data-lucide="folder-search" style="width:16px;height:16px;"></i> Cambiar carpeta
+                    </button>
+                    <button id="btn-logout" class="btn-danger btn-sm" style="justify-content: center;">
+                        <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesion
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ====== Modal de Confirmacion: Eliminar Curso ====== -->
+    <div id="delete-course-modal" class="help-modal hidden">
+        <div class="help-overlay"></div>
+        <div class="help-panel" style="max-width: 360px;">
+            <div class="help-header">
+                <h3>Eliminar curso</h3>
+                <button id="btn-close-delete-course" class="btn-ghost btn-sm">
+                    <i data-lucide="x" style="width:18px;height:18px;"></i>
+                </button>
+            </div>
+            <div>
+                <p>Se perderan los datos guardados (cuestionarios e informes). Los archivos de alumnos no se borran.</p>
+                <p id="delete-course-name" style="font-weight: 600; margin-top: 8px;"></p>
+                <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
+                    <button id="btn-cancel-delete-course" class="btn-secondary btn-sm">Cancelar</button>
+                    <button id="btn-confirm-delete-course" class="btn-danger btn-sm">Eliminar</button>
+                </div>
+            </div>
         </div>
     </div>
 
