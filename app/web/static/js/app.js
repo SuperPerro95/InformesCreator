@@ -393,7 +393,6 @@ let totalQuestions = 0;
 
 // Auth state
 let authState = { loggedIn: false, username: '' };
-let courseToDelete = null;
 
 // ===================== Router =====================
 let isNavigating = false;
@@ -965,9 +964,6 @@ async function loadCoursesGrid() {
 
       return `
         <div class="course-card ${hasData ? 'has-data' : ''}" data-course="${c}">
-          <button class="btn-ghost btn-sm course-delete-btn" data-course="${c}" title="Eliminar curso" style="position:absolute;top:8px;right:8px;padding:4px;line-height:1;">
-            <i data-lucide="trash-2" style="width:14px;height:14px;"></i>
-          </button>
           ${hasData ? '<div class="badge badge-warning">Tiene datos guardados</div>' : ''}
           <div class="course-card-name">${c}</div>
           <div class="course-card-progress">${existingReports} informe(s) generado(s)</div>
@@ -992,14 +988,6 @@ async function loadCoursesGrid() {
         e.stopPropagation();
         const course = e.currentTarget.dataset.course;
         navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
-      });
-    });
-
-    container.querySelectorAll('.course-delete-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const course = e.currentTarget.dataset.course;
-        openDeleteCourseModal(course);
       });
     });
 
@@ -1624,7 +1612,11 @@ function _getOptionIcon(answerType, index) {
   return list[index] || null;
 }
 
-// ===================== Step 1: Questionnaire =====================
+function _cleanLabel(label) {
+  if (!label) return '';
+  const idx = label.indexOf(' - ');
+  return idx >= 0 ? label.substring(idx + 3).trim() : label;
+}
 function setupQuestionnaireForCurrentStudent() {
   showObservationsPanel();
 }
@@ -1673,6 +1665,7 @@ function renderQuestion(index) {
     continueBtn.textContent = 'Continuar';
     continueBtn.className = 'btn-primary';
     continueBtn.style.marginTop = '16px';
+    continueBtn.style.gridColumn = '1 / -1';
     continueBtn.addEventListener('click', () => handleAnswer(textarea.value));
     optionsContainer.appendChild(textarea);
     optionsContainer.appendChild(continueBtn);
@@ -1682,7 +1675,7 @@ function renderQuestion(index) {
       btn.className = 'answer-btn';
       const iconName = _getOptionIcon(q.answer_type, i);
       const iconHtml = iconName ? `<span class="btn-icon">${icon(iconName)}</span>` : '';
-      btn.innerHTML = `${iconHtml}<span class="btn-text">${q.labels[i]}</span>`;
+      btn.innerHTML = `${iconHtml}<span class="btn-text">${_cleanLabel(q.labels[i])}</span>`;
       if (savedValue === opt || savedValue === q.labels[i]) btn.classList.add('selected');
       btn.addEventListener('click', () => handleAnswer(opt));
       optionsContainer.appendChild(btn);
@@ -2423,15 +2416,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Delete course modal
-  $('btn-close-delete-course').addEventListener('click', closeDeleteCourseModal);
-  $('btn-cancel-delete-course').addEventListener('click', closeDeleteCourseModal);
-  $('btn-confirm-delete-course').addEventListener('click', doConfirmDeleteCourse);
-  $('delete-course-modal').addEventListener('click', (e) => {
-    if (e.target === $('delete-course-modal') || e.target.classList.contains('help-overlay')) {
-      closeDeleteCourseModal();
-    }
-  });
 
   // Login / Register
   $('btn-login').addEventListener('click', doLogin);
@@ -2445,7 +2429,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-new-questionnaire').addEventListener('click', () => navigateTo('#/questionnaires/new/'));
   $('btn-save-questionnaire-editor').addEventListener('click', saveQuestionnaireEditor);
   $('btn-cancel-questionnaire-editor').addEventListener('click', () => navigateTo('#/questionnaires'));
-  $('btn-add-question').addEventListener('click', addEditorQuestion);
+  $('qe-textarea').addEventListener('input', () => {
+    renderMarkdownPreview(parseMarkdownQuestions($('qe-textarea').value));
+  });
 
   // Auth: init
   initAuth();
@@ -2592,33 +2578,6 @@ async function doChangeFolder() {
   }
 }
 
-// ===================== Delete Course =====================
-function openDeleteCourseModal(courseName) {
-  courseToDelete = courseName;
-  $('delete-course-name').textContent = courseName;
-  show($('delete-course-modal'));
-}
-
-function closeDeleteCourseModal() {
-  courseToDelete = null;
-  hide($('delete-course-modal'));
-}
-
-async function doConfirmDeleteCourse() {
-  if (!courseToDelete) return;
-  setLoading(true);
-  try {
-    const res = await fetch(`/api/courses/${encodeURIComponent(courseToDelete)}`, { method: 'DELETE' });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    closeDeleteCourseModal();
-    loadCoursesGrid();
-  } catch (err) {
-    alert('Error eliminando curso: ' + err.message);
-  } finally {
-    setLoading(false);
-  }
-}
-
 // ===================== Questionnaire Editor =====================
 let editingQuestionnaireId = null;
 let editorQuestions = [];
@@ -2681,43 +2640,112 @@ async function loadQuestionnairesList() {
   }
 }
 
-async function openQuestionnaireEditor(id, showVersions = false) {
+function questionsToMarkdown(questions) {
+  return questions.map(q => {
+    const lines = [];
+    lines.push(`# ${q.title || ''}`);
+    lines.push(`> section: ${q.section || 'pedagogical'}`);
+    lines.push(`> type: ${q.answer_type || 'frequency_4'}`);
+    if (q.text && q.text !== q.title) lines.push(q.text);
+    if (q.labels) {
+      q.labels.forEach(l => lines.push(`- ${l}`));
+    }
+    return lines.join('\n');
+  }).join('\n\n');
+}
+
+function parseMarkdownQuestions(text) {
+  const questions = [];
+  const blocks = text.split(/\n\s*\n/);
+  for (const block of blocks) {
+    const lines = block.split('\n').map(l => l.trim()).filter(l => l);
+    if (lines.length === 0) continue;
+    const q = { title: '', section: 'pedagogical', text: '', answer_type: 'frequency_4', options: [], labels: [] };
+    let i = 0;
+    if (lines[i].startsWith('# ')) {
+      q.title = lines[i].substring(2).trim();
+      i++;
+    }
+    while (i < lines.length && lines[i].startsWith('> ')) {
+      const meta = lines[i].substring(2).trim();
+      if (meta.startsWith('section:')) q.section = meta.substring(8).trim();
+      else if (meta.startsWith('type:')) q.answer_type = meta.substring(5).trim();
+      i++;
+    }
+    const bodyLines = [];
+    while (i < lines.length && !lines[i].startsWith('- ')) {
+      bodyLines.push(lines[i]);
+      i++;
+    }
+    q.text = bodyLines.join(' ').trim() || q.title;
+    while (i < lines.length && lines[i].startsWith('- ')) {
+      q.labels.push(lines[i].substring(2).trim());
+      i++;
+    }
+    if (q.answer_type === 'tea_tep_ted') {
+      q.options = ['TEA', 'TEP', 'TED'];
+      if (!q.labels.length) q.labels = ['TEA - Trayectoria Educativa Alcanzada', 'TEP - Trayectoria Educativa en Proceso', 'TED - Trayectoria Educativa Discontinua'];
+    } else if (q.answer_type === 'frequency_4') {
+      q.options = [1, 2, 3, 4];
+      if (!q.labels.length) q.labels = ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'];
+    } else if (q.answer_type === 'achievement_3') {
+      q.options = [1, 2, 3];
+      if (!q.labels.length) q.labels = ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'];
+    } else if (q.answer_type === 'free_text') {
+      q.options = null;
+      q.labels = null;
+    }
+    questions.push(q);
+  }
+  return questions;
+}
+
+function renderMarkdownPreview(questions) {
+  const container = $('qe-preview');
+  if (!questions.length) {
+    container.innerHTML = '<p class="hint">Sin preguntas. Escribe markdown valido.</p>';
+    return;
+  }
+  container.innerHTML = questions.map((q, i) => `
+    <div class="qe-preview-item">
+      <div class="qe-preview-title">${i + 1}. ${q.title || '(sin titulo)'}</div>
+      <div class="qe-preview-meta">${q.section} | ${q.answer_type}</div>
+      <div class="qe-preview-text">${q.text || ''}</div>
+      ${q.labels ? `<ul class="qe-preview-options">${q.labels.map(l => `<li>${l}</li>`).join('')}</ul>` : '<span class="qe-preview-meta">Texto libre</span>'}
+    </div>
+  `).join('');
+}
+
+async function openQuestionnaireEditor(id) {
   editingQuestionnaireId = id;
-  editorQuestions = [];
   $('editor-title').textContent = id ? 'Editar cuestionario' : 'Nuevo cuestionario';
   $('qe-name').value = '';
-  $('qe-description').value = '';
-  hide($('qe-versions-section'));
+  $('qe-textarea').value = '';
 
   if (id) {
     setLoading(true);
     try {
       const data = await apiGet(`/questionnaires/${id}`);
       $('qe-name').value = data.name || '';
-      $('qe-description').value = data.description || '';
-      editorQuestions = JSON.parse(JSON.stringify(data.questions || []));
-      if (showVersions) {
-        show($('qe-versions-section'));
-        loadQuestionnaireVersions(id);
-      }
+      const questions = data.questions || [];
+      $('qe-textarea').value = questionsToMarkdown(questions);
+      renderMarkdownPreview(parseMarkdownQuestions($('qe-textarea').value));
     } catch (err) {
       console.error('Error cargando cuestionario:', err);
     } finally {
       setLoading(false);
     }
   } else {
-    // Nuevo: copiar preguntas por defecto
-    editorQuestions = JSON.parse(JSON.stringify(ALL_QUESTIONS));
+    $('qe-textarea').value = questionsToMarkdown(ALL_QUESTIONS);
+    renderMarkdownPreview(parseMarkdownQuestions($('qe-textarea').value));
   }
 
-  renderEditorQuestions();
   hide($('questionnaires-screen'));
   show($('questionnaire-editor'));
 }
 
 function closeQuestionnaireEditor() {
   editingQuestionnaireId = null;
-  editorQuestions = [];
   navigateTo('#/questionnaires');
 }
 
@@ -2727,15 +2755,19 @@ async function saveQuestionnaireEditor() {
     alert('Ingresa un nombre para el cuestionario.');
     return;
   }
-  const questions = editorQuestions.map(q => ({
-    ...q,
-    options: q.options ?? [],
-    labels: q.labels ?? []
-  }));
+  const questions = parseMarkdownQuestions($('qe-textarea').value);
+  if (questions.length === 0) {
+    alert('No se encontraron preguntas en el texto.');
+    return;
+  }
   const payload = {
     name,
-    description: $('qe-description').value.trim(),
-    questions
+    description: '',
+    questions: questions.map(q => ({
+      ...q,
+      options: q.options ?? [],
+      labels: q.labels ?? []
+    }))
   };
   setLoading(true);
   try {
@@ -2749,134 +2781,6 @@ async function saveQuestionnaireEditor() {
     alert('Error guardando cuestionario: ' + err.message);
   } finally {
     setLoading(false);
-  }
-}
-
-function renderEditorQuestions() {
-  const container = $('qe-questions-list');
-  container.innerHTML = editorQuestions.map((q, i) => `
-    <div class="qe-question-item" data-index="${i}">
-      <div class="qe-question-fields">
-        <select class="qe-section" data-index="${i}">
-          <option value="valoracion" ${q.section === 'valoracion' ? 'selected' : ''}>Valoracion</option>
-          <option value="pedagogical" ${q.section === 'pedagogical' ? 'selected' : ''}>Pedagogico</option>
-          <option value="socioemotional" ${q.section === 'socioemotional' ? 'selected' : ''}>Socioemocional</option>
-          <option value="content" ${q.section === 'content' ? 'selected' : ''}>Contenidos</option>
-          <option value="observaciones" ${q.section === 'observaciones' ? 'selected' : ''}>Observaciones</option>
-        </select>
-        <input type="text" class="qe-title" data-index="${i}" placeholder="Titulo" value="${q.title || ''}">
-        <input type="text" class="qe-text" data-index="${i}" placeholder="Texto de la pregunta" value="${q.text || ''}">
-        <select class="qe-answer-type" data-index="${i}">
-          <option value="tea_tep_ted" ${q.answer_type === 'tea_tep_ted' ? 'selected' : ''}>TEA/TEP/TED</option>
-          <option value="frequency_4" ${q.answer_type === 'frequency_4' ? 'selected' : ''}>Frecuencia 1-4</option>
-          <option value="achievement_3" ${q.answer_type === 'achievement_3' ? 'selected' : ''}>Logro 1-3</option>
-          <option value="free_text" ${q.answer_type === 'free_text' ? 'selected' : ''}>Texto libre</option>
-        </select>
-      </div>
-      <div class="qe-question-actions">
-        <button class="btn-ghost btn-sm" data-action="up" data-index="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
-        <button class="btn-ghost btn-sm" data-action="down" data-index="${i}" ${i === editorQuestions.length - 1 ? 'disabled' : ''}>▼</button>
-        <button class="btn-danger btn-sm" data-action="remove" data-index="${i}">✕</button>
-      </div>
-    </div>
-  `).join('');
-
-  container.querySelectorAll('.qe-section').forEach(el => {
-    el.addEventListener('change', (e) => { editorQuestions[e.target.dataset.index].section = e.target.value; });
-  });
-  container.querySelectorAll('.qe-title').forEach(el => {
-    el.addEventListener('input', (e) => { editorQuestions[e.target.dataset.index].title = e.target.value; });
-  });
-  container.querySelectorAll('.qe-text').forEach(el => {
-    el.addEventListener('input', (e) => { editorQuestions[e.target.dataset.index].text = e.target.value; });
-  });
-  container.querySelectorAll('.qe-answer-type').forEach(el => {
-    el.addEventListener('change', (e) => {
-      const idx = e.target.dataset.index;
-      editorQuestions[idx].answer_type = e.target.value;
-      editorQuestions[idx].options = getDefaultOptions(e.target.value);
-      editorQuestions[idx].labels = getDefaultLabels(e.target.value);
-    });
-  });
-  container.querySelectorAll('[data-action]').forEach(btn => {
-    btn.addEventListener('click', (e) => {
-      const action = e.currentTarget.dataset.action;
-      const idx = parseInt(e.currentTarget.dataset.index);
-      if (action === 'up') moveEditorQuestion(idx, -1);
-      else if (action === 'down') moveEditorQuestion(idx, 1);
-      else if (action === 'remove') removeEditorQuestion(idx);
-    });
-  });
-}
-
-function getDefaultOptions(answerType) {
-  if (answerType === 'tea_tep_ted') return ['TEA', 'TEP', 'TED'];
-  if (answerType === 'frequency_4') return [1, 2, 3, 4];
-  if (answerType === 'achievement_3') return [1, 2, 3];
-  return null;
-}
-
-function getDefaultLabels(answerType) {
-  if (answerType === 'tea_tep_ted') return ['TEA - Trayectoria Educativa Alcanzada', 'TEP - Trayectoria Educativa en Proceso', 'TED - Trayectoria Educativa Discontinua'];
-  if (answerType === 'frequency_4') return ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'];
-  if (answerType === 'achievement_3') return ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'];
-  return null;
-}
-
-function addEditorQuestion() {
-  editorQuestions.push({
-    section: 'pedagogical',
-    title: 'Nueva pregunta',
-    text: 'Texto de la nueva pregunta',
-    answer_type: 'frequency_4',
-    options: [1, 2, 3, 4],
-    labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE']
-  });
-  renderEditorQuestions();
-}
-
-function removeEditorQuestion(index) {
-  editorQuestions.splice(index, 1);
-  renderEditorQuestions();
-}
-
-function moveEditorQuestion(index, direction) {
-  const newIndex = index + direction;
-  if (newIndex < 0 || newIndex >= editorQuestions.length) return;
-  const temp = editorQuestions[index];
-  editorQuestions[index] = editorQuestions[newIndex];
-  editorQuestions[newIndex] = temp;
-  renderEditorQuestions();
-}
-
-async function loadQuestionnaireVersions(id) {
-  try {
-    const data = await apiGet(`/questionnaires/${id}/versions`);
-    const container = $('qe-versions-list');
-    if (!data.versions || data.versions.length === 0) {
-      container.innerHTML = '<p class="hint">Sin versiones guardadas.</p>';
-      return;
-    }
-    container.innerHTML = data.versions.map((v, i) => `
-      <div class="version-item">
-        <span>Version ${v.version} — ${new Date(v.saved_at).toLocaleString()}</span>
-        <button class="btn-ghost btn-sm" data-version="${v.version}">Restaurar</button>
-      </div>
-    `).join('');
-    container.querySelectorAll('[data-version]').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const version = e.currentTarget.dataset.version;
-        if (!confirm(`Restaurar version ${version}? Se perderan los cambios no guardados.`)) return;
-        try {
-          await apiPost(`/questionnaires/${id}/restore/${version}`, {});
-          openQuestionnaireEditor(id);
-        } catch (err) {
-          alert('Error restaurando version: ' + err.message);
-        }
-      });
-    });
-  } catch (err) {
-    console.error('Error cargando versiones:', err);
   }
 }
 

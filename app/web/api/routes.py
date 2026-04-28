@@ -245,17 +245,6 @@ def me():
     }
 
 
-@router.delete("/courses/{course}")
-def delete_course(course: str):
-    """Elimina el JSON de sesión de un curso. No borra la carpeta ni los .md."""
-    from course_manager import _slugify
-    slug = _slugify(course)
-    session_file = user_data_path(f"curso_{slug}.json")
-    if session_file.exists():
-        session_file.unlink()
-    return {"ok": True}
-
-
 @router.get("/ollama/status", response_model=OllamaStatusResponse)
 def ollama_status():
     installed = is_ollama_installed()

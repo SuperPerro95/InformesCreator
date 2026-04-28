@@ -217,19 +217,20 @@
                 <div class="editor-fields">
                     <label>Nombre</label>
                     <input type="text" id="qe-name" placeholder="Nombre del cuestionario">
-                    <label>Descripcion</label>
-                    <textarea id="qe-description" rows="2" placeholder="Descripcion opcional"></textarea>
                 </div>
 
-                <h3>Preguntas</h3>
-                <div id="qe-questions-list" class="qe-questions-list"></div>
-                <button id="btn-add-question" class="btn-secondary btn-sm" style="margin-top: var(--space-3);">
-                    <i data-lucide="plus" style="width:16px;height:16px;"></i> Agregar pregunta
-                </button>
-
-                <div id="qe-versions-section" class="hidden" style="margin-top: var(--space-6);">
-                    <h3>Historial de versiones</h3>
-                    <div id="qe-versions-list"></div>
+                <div class="qe-editor-layout">
+                    <div class="qe-editor-pane">
+                        <label>Editor Markdown</label>
+                        <textarea id="qe-textarea" rows="20" placeholder="Pega aqui tu cuestionario en formato markdown..."></textarea>
+                        <p class="hint" style="margin-top: var(--space-2); font-size: 0.75rem;">
+                            Formato: <code># Titulo</code>, <code>&gt; section: valoracion</code>, <code>&gt; type: frequency_4</code>, texto y opciones con <code>- </code>.
+                        </p>
+                    </div>
+                    <div class="qe-preview-pane">
+                        <label>Vista previa</label>
+                        <div id="qe-preview" class="qe-preview"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -480,27 +481,6 @@
                     <button id="btn-logout" class="btn-danger btn-sm" style="justify-content: center;">
                         <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesion
                     </button>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- ====== Modal de Confirmacion: Eliminar Curso ====== -->
-    <div id="delete-course-modal" class="help-modal hidden">
-        <div class="help-overlay"></div>
-        <div class="help-panel" style="max-width: 360px;">
-            <div class="help-header">
-                <h3>Eliminar curso</h3>
-                <button id="btn-close-delete-course" class="btn-ghost btn-sm">
-                    <i data-lucide="x" style="width:18px;height:18px;"></i>
-                </button>
-            </div>
-            <div>
-                <p>Se perderan los datos guardados (cuestionarios e informes). Los archivos de alumnos no se borran.</p>
-                <p id="delete-course-name" style="font-weight: 600; margin-top: 8px;"></p>
-                <div style="margin-top: 16px; display: flex; gap: 8px; justify-content: flex-end;">
-                    <button id="btn-cancel-delete-course" class="btn-secondary btn-sm">Cancelar</button>
-                    <button id="btn-confirm-delete-course" class="btn-danger btn-sm">Eliminar</button>
                 </div>
             </div>
         </div>
