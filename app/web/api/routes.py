@@ -5,10 +5,10 @@ import sys
 import tempfile
 import uuid
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 # Agregar raíz del proyecto al path para importar módulos existentes
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
@@ -16,7 +16,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent.parent))
 from config import Config
 from course_manager import (
     add_students_to_course,
-    calculate_attendance_from_observations,
     create_course,
     discover_courses,
     get_course_contents,
@@ -34,6 +33,18 @@ from report_saver import save_report
 from setup_ollama import get_available_models, is_ollama_installed, is_ollama_running
 from student_parser import parse_student_file
 from variants import get_variant_by_id, load_variants
+from questionnaires import (
+    assign_questionnaire_to_course,
+    create_questionnaire,
+    delete_questionnaire,
+    duplicate_questionnaire,
+    get_course_questionnaire,
+    get_questionnaire,
+    get_questionnaire_versions,
+    load_questionnaires,
+    restore_questionnaire_version,
+    update_questionnaire,
+)
 
 router = APIRouter()
 config = Config()
@@ -66,10 +77,12 @@ class StudentDetail(BaseModel):
 
 
 class QuestionnaireAnswers(BaseModel):
+    model_config = ConfigDict(extra='allow')
+
     valoracion: Optional[str] = None
-    pedagogical: List[int]
-    socioemotional: List[int]
-    content: List[int]
+    pedagogical: List[int] = []
+    socioemotional: List[int] = []
+    content: List[int] = []
     particular_observations: Optional[str] = None
     attendance: Optional[Dict] = None
 
@@ -126,6 +139,35 @@ class LoginRequest(BaseModel):
 class ProfileResponse(BaseModel):
     username: str
     display_name: Optional[str] = None
+
+
+class QuestionItem(BaseModel):
+    section: str
+    title: str
+    text: str
+    answer_type: str
+    options: List[Any]
+    labels: List[str]
+
+
+class CreateQuestionnaireRequest(BaseModel):
+    name: str
+    description: str = ""
+    questions: List[QuestionItem]
+
+
+class UpdateQuestionnaireRequest(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    questions: Optional[List[QuestionItem]] = None
+
+
+class DuplicateQuestionnaireRequest(BaseModel):
+    new_name: str
+
+
+class AssignQuestionnaireRequest(BaseModel):
+    questionnaire_id: str
 
 
 # ============== Profile Helpers ==============
@@ -279,11 +321,13 @@ def post_contents(course: str, req: CourseContentsRequest):
 def get_session(course: str):
     session = get_course_session(course)
     reports = list_generated_reports(course, config.output_dir)
+    qid = get_course_questionnaire(course)
     return {
         "contenidos": session["contenidos"],
         "respuestas": session["respuestas"],
         "progreso": session["progreso"],
         "informes_existentes": reports,
+        "questionnaire_id": qid,
     }
 
 
@@ -369,7 +413,14 @@ def generate_report_endpoint(req: ReportGenerateRequest):
     # Construir prompts
     system_prompt = build_system_prompt(variant, req.customization)
     answers_dict = req.answers.model_dump()
-    user_prompt = build_user_prompt(student, req.contents, answers_dict, variant, req.answers.attendance)
+
+    # Obtener cuestionario asignado al curso
+    qid = get_course_questionnaire(req.course)
+    questionnaire = get_questionnaire(qid)
+
+    user_prompt = build_user_prompt(
+        student, req.contents, answers_dict, variant, req.answers.attendance, questionnaire,
+    )
 
     # Generar con Ollama
     model = req.model or config.model
@@ -524,6 +575,126 @@ def update_config(updates: Dict[str, str]):
             updates["output_dir"] = str(Path(config.base_path) / bp / "Informes")
     for key, value in updates.items():
         config.set(key, value)
+    return {"ok": True}
+
+
+# ============== Questionnaires ==============
+
+@router.get("/questionnaires")
+def list_questionnaires():
+    """Lista todos los cuestionarios disponibles."""
+    data = load_questionnaires()
+    questionnaires = data.get("questionnaires", {})
+    return [
+        {
+            "id": q["id"],
+            "name": q["name"],
+            "description": q.get("description", ""),
+            "version": q.get("version", 1),
+            "created_at": q.get("created_at", ""),
+            "question_count": len(q.get("questions", [])),
+        }
+        for q in questionnaires.values()
+    ]
+
+
+@router.get("/questionnaires/{qid}")
+def get_questionnaire_endpoint(qid: str):
+    """Devuelve un cuestionario completo por ID."""
+    q = get_questionnaire(qid)
+    if not q:
+        raise HTTPException(status_code=404, detail="Cuestionario no encontrado")
+    return {
+        "id": q.id,
+        "name": q.name,
+        "description": q.description,
+        "version": q.version,
+        "created_at": q.created_at,
+        "questions": [
+            {
+                "section": qu.section,
+                "title": qu.title,
+                "text": qu.text,
+                "answer_type": qu.answer_type,
+                "options": qu.options,
+                "labels": qu.labels,
+            }
+            for qu in q.questions
+        ],
+    }
+
+
+@router.post("/questionnaires")
+def create_questionnaire_endpoint(req: CreateQuestionnaireRequest):
+    """Crea un nuevo cuestionario."""
+    questions = [q.model_dump() for q in req.questions]
+    q = create_questionnaire(req.name, req.description, questions)
+    return {"id": q.id, "name": q.name, "version": q.version}
+
+
+@router.put("/questionnaires/{qid}")
+def update_questionnaire_endpoint(qid: str, req: UpdateQuestionnaireRequest):
+    """Actualiza un cuestionario existente."""
+    updates = {}
+    if req.name is not None:
+        updates["name"] = req.name
+    if req.description is not None:
+        updates["description"] = req.description
+    if req.questions is not None:
+        updates["questions"] = [q.model_dump() for q in req.questions]
+    try:
+        q = update_questionnaire(qid, updates)
+        return {"id": q.id, "name": q.name, "version": q.version}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.delete("/questionnaires/{qid}")
+def delete_questionnaire_endpoint(qid: str):
+    """Elimina un cuestionario (no se puede eliminar el default)."""
+    ok = delete_questionnaire(qid)
+    if not ok:
+        raise HTTPException(status_code=400, detail="No se puede eliminar el cuestionario default o no existe")
+    return {"ok": True}
+
+
+@router.post("/questionnaires/{qid}/duplicate")
+def duplicate_questionnaire_endpoint(qid: str, req: DuplicateQuestionnaireRequest):
+    """Duplica un cuestionario con nuevo nombre."""
+    try:
+        q = duplicate_questionnaire(qid, req.new_name)
+        return {"id": q.id, "name": q.name}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/questionnaires/{qid}/versions")
+def list_questionnaire_versions(qid: str):
+    """Devuelve el historial de versiones de un cuestionario."""
+    return {"versions": get_questionnaire_versions(qid)}
+
+
+@router.post("/questionnaires/{qid}/restore/{version}")
+def restore_questionnaire_version_endpoint(qid: str, version: int):
+    """Restaura un cuestionario a una versión anterior."""
+    try:
+        q = restore_questionnaire_version(qid, version)
+        return {"id": q.id, "name": q.name, "version": q.version}
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+
+@router.get("/courses/{course}/questionnaire")
+def get_course_questionnaire_endpoint(course: str):
+    """Devuelve el ID del cuestionario asignado a un curso."""
+    qid = get_course_questionnaire(course)
+    return {"questionnaire_id": qid}
+
+
+@router.post("/courses/{course}/questionnaire")
+def assign_course_questionnaire_endpoint(course: str, req: AssignQuestionnaireRequest):
+    """Asigna un cuestionario a un curso."""
+    assign_questionnaire_to_course(course, req.questionnaire_id)
     return {"ok": True}
 
 

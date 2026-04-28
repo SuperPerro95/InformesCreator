@@ -54,7 +54,7 @@ def test_parse_student_file():
         assert student.lista_numero == 1
         assert student.curso == "1ro B ESN5"
         assert student.total_ausencias == 1
-        assert student.total_presentes == 1
+        assert student.total_presentes == 2
         assert student.presentes_exc == 1
         assert student.tarde == 0
         assert student.inasistencias_seguidas == 1
@@ -142,7 +142,7 @@ def test_parse_student_file_argentine_date_format():
         assert student.observaciones[-1].fecha == "24/4/2026"
 
         # Verificar resumen
-        assert student.total_presentes == 5
+        assert student.total_presentes == 6
         assert student.presentes_exc == 2
         assert student.tarde == 1
         assert student.total_ausencias == 4
@@ -190,5 +190,56 @@ def test_parse_empty_observations():
         assert student.nombre_completo == "Pérez, JUAN"
         assert student.lista_numero == 5
         assert len(student.observaciones) == 0
+    finally:
+        temp_path.unlink()
+
+
+def test_parse_student_file_ignores_stale_resumen():
+    """Verifica que los totales se recalculen desde la tabla ignorando un Resumen desactualizado."""
+    markdown = """# Lopez, JUAN
+
+**Curso:** 2do A ESN5 | **Lista Nº:** 5
+
+---
+
+## 📝 Observaciones
+
+| Fecha | Código | Tipo | Comentario |
+|-------|--------|------|------------|
+| | | | |
+| 2026-04-22 | P | Presente | |
+| 2026-04-23 | P-EXC | Presente excelente | |
+| 2026-04-24 | A | Ausente | |
+
+### Leyenda:
+- **P** = Presente
+- **A** = Ausente
+- **P-EXC** = Presente excelente trabajo
+
+---
+
+## 📊 Resumen
+
+- **Total Presentes:** 0
+- **P-EXC:** 0
+- **Tarde:** 0
+- **Total Ausencias:** 0
+- **Inasistencias seguidas:** 0
+- **Última actualización:** 2026-04-24
+"""
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".md", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(markdown)
+        temp_path = Path(f.name)
+
+    try:
+        student = parse_student_file(temp_path)
+        assert student.total_presentes == 2  # P + P-EXC
+        assert student.presentes_exc == 1
+        assert student.total_ausencias == 1
+        assert student.tarde == 0
+        assert student.inasistencias_seguidas == 1
+        assert student.ultima_actualizacion == "2026-04-24"
     finally:
         temp_path.unlink()

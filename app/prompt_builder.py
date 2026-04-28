@@ -1,4 +1,4 @@
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from student_parser import Student
 from variants import ReportVariant
@@ -45,6 +45,57 @@ CONTENT_INDICATORS = [
     "Justifica sus respuestas",
 ]
 
+_SECTION_TITLES = {
+    "pedagogical": "COMPORTAMIENTO PEDAGÓGICO",
+    "socioemotional": "COMPORTAMIENTO SOCIOEMOCIONAL",
+    "content": "DOMINIO DE CONTENIDOS",
+}
+
+
+def _roman(num: int) -> str:
+    val = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1]
+    syb = ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"]
+    roman_num = ""
+    for i in range(len(val)):
+        count = int(num / val[i])
+        roman_num += syb[i] * count
+        num -= val[i] * count
+    return roman_num
+
+
+def _group_questions_by_section(questions: List[Any]) -> Dict[str, List[Any]]:
+    """Agrupa preguntas por sección preservando el orden de aparición."""
+    sections: Dict[str, List[Any]] = {}
+    for q in questions:
+        section = getattr(q, "section", "")
+        sections.setdefault(section, []).append(q)
+    return sections
+
+
+def _get_answer_mapping(answer_type: str) -> Optional[Dict]:
+    if answer_type == "frequency_4":
+        return FREQUENCY_MAP
+    if answer_type == "achievement_3":
+        return CONTENT_LEVEL_MAP
+    return None
+
+
+def _build_dynamic_dimension_summary(title: str, questions: List[Any], answers: List) -> str:
+    lines = [f"{title}:"]
+    has_any = False
+    for i, q in enumerate(questions):
+        if i < len(answers) and answers[i] is not None and answers[i] != 0 and answers[i] != "":
+            value = answers[i]
+            mapping = _get_answer_mapping(getattr(q, "answer_type", ""))
+            if mapping and value in mapping:
+                value = mapping[value]
+            display_text = getattr(q, "text", "") or getattr(q, "title", "")
+            lines.append(f"- {display_text} → {value}")
+            has_any = True
+    if not has_any:
+        return ""
+    return "\n".join(lines) + "\n"
+
 
 def build_system_prompt(variant: ReportVariant, customization: Optional[str] = None) -> str:
     """Construye el system prompt para Ollama."""
@@ -66,39 +117,62 @@ def build_user_prompt(
     answers: Dict,
     variant: ReportVariant,
     attendance: Optional[Dict] = None,
+    questionnaire: Optional[Any] = None,
 ) -> str:
     """Construye el user prompt combinando todos los datos del alumno."""
 
-    # Resumen de observaciones
     observations_summary = _build_observations_summary(student.observaciones)
 
-    # Cuestionario pedagógico
-    pedagogical_summary = _build_dimension_summary(
-        "I. COMPORTAMIENTO PEDAGÓGICO",
-        PEDAGOGICAL_QUESTIONS,
-        answers.get("pedagogical", []),
-        FREQUENCY_MAP,
-    )
+    valoracion = answers.get("valoracion", "")
+    particular_observations = answers.get("particular_observations", "")
 
-    # Cuestionario socioemocional
-    socioemotional_summary = _build_dimension_summary(
-        "II. COMPORTAMIENTO SOCIOEMOCIONAL",
-        SOCIOEMOTIONAL_QUESTIONS,
-        answers.get("socioemotional", []),
-        FREQUENCY_MAP,
-    )
+    if questionnaire and questionnaire.questions:
+        # Dynamic questionnaire path
+        sections = _group_questions_by_section(questionnaire.questions)
+        summaries = []
+        section_idx = 1
 
-    # Dominio de contenidos
-    content_summary = _build_dimension_summary(
-        "III. DOMINIO DE CONTENIDOS",
-        CONTENT_INDICATORS,
-        answers.get("content", []),
-        CONTENT_LEVEL_MAP,
-    )
+        for section_key, questions in sections.items():
+            if section_key in ("valoracion", "observaciones"):
+                continue
+            section_answers = answers.get(section_key, [])
+            title = _SECTION_TITLES.get(section_key, section_key.upper().replace("_", " "))
+            summary = _build_dynamic_dimension_summary(
+                f"{_roman(section_idx)}. {title}",
+                questions,
+                section_answers,
+            )
+            if summary:
+                summaries.append(summary)
+                section_idx += 1
+
+        dimensions_summary = "".join(summaries)
+    else:
+        # Backward compatibility: hardcoded arrays
+        pedagogical_summary = _build_dimension_summary(
+            "I. COMPORTAMIENTO PEDAGÓGICO",
+            PEDAGOGICAL_QUESTIONS,
+            answers.get("pedagogical", []),
+            FREQUENCY_MAP,
+        )
+        socioemotional_summary = _build_dimension_summary(
+            "II. COMPORTAMIENTO SOCIOEMOCIONAL",
+            SOCIOEMOTIONAL_QUESTIONS,
+            answers.get("socioemotional", []),
+            FREQUENCY_MAP,
+        )
+        content_summary = _build_dimension_summary(
+            "III. DOMINIO DE CONTENIDOS",
+            CONTENT_INDICATORS,
+            answers.get("content", []),
+            CONTENT_LEVEL_MAP,
+        )
+        dimensions_summary = f"{pedagogical_summary}{socioemotional_summary}{content_summary}"
 
     # Observaciones particulares
-    particular_observations = answers.get("particular_observations", "")
-    particular_section = f"\nOBSERVACIONES PARTICULARES:\n{particular_observations}\n" if particular_observations else ""
+    particular_section = ""
+    if particular_observations:
+        particular_section = f"\nOBSERVACIONES PARTICULARES:\n{particular_observations}\n"
 
     # Asistencia (si se incluye y supera el 30%)
     attendance_section = ""
@@ -133,7 +207,7 @@ OBSERVACIONES DE CLASE:
 CONTENIDOS DESARROLLADOS DEL CURSO:
 {course_contents}
 
-{f"VALORACIÓN PRELIMINAR: {answers.get('valoracion')}\n\n" if answers.get("valoracion") else ""}{pedagogical_summary}{socioemotional_summary}{content_summary}{particular_section}{attendance_section}
+{f"VALORACIÓN PRELIMINAR: {valoracion}\n\n" if valoracion else ""}{dimensions_summary}{particular_section}{attendance_section}
 ---
 
 INSTRUCCIONES:

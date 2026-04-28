@@ -147,6 +147,9 @@
                 <button id="btn-profile" class="btn-ghost btn-sm" title="Perfil" style="margin-right: 8px;">
                     <i data-lucide="user" style="width:16px;height:16px;"></i> <span id="header-username"></span>
                 </button>
+                <button id="btn-cuestionarios" class="btn-ghost btn-sm" title="Cuestionarios" style="margin-right: 8px;">
+                    <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
+                </button>
                 <button id="btn-mis-cursos" class="btn-primary btn-sm">
                     <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
                 </button>
@@ -184,6 +187,53 @@
             </div>
         </div>
 
+        <!-- ====== Pantalla de Cuestionarios ====== -->
+        <div id="questionnaires-screen" class="hidden">
+            <div class="questionnaires-container">
+                <div class="questionnaires-header">
+                    <h2>Cuestionarios</h2>
+                    <div class="questionnaires-actions">
+                        <button id="btn-new-questionnaire" class="btn-primary btn-sm">
+                            <i data-lucide="plus" style="width:16px;height:16px;"></i> Nuevo cuestionario
+                        </button>
+                        <button id="btn-close-questionnaires" class="btn-secondary btn-sm">Volver</button>
+                    </div>
+                </div>
+                <div id="questionnaires-list" class="questionnaires-list"></div>
+            </div>
+        </div>
+
+        <!-- ====== Editor de Cuestionario ====== -->
+        <div id="questionnaire-editor" class="hidden">
+            <div class="questionnaires-container">
+                <div class="questionnaires-header">
+                    <h2 id="editor-title">Nuevo cuestionario</h2>
+                    <div class="questionnaires-actions">
+                        <button id="btn-save-questionnaire-editor" class="btn-primary btn-sm">Guardar</button>
+                        <button id="btn-cancel-questionnaire-editor" class="btn-secondary btn-sm">Cancelar</button>
+                    </div>
+                </div>
+
+                <div class="editor-fields">
+                    <label>Nombre</label>
+                    <input type="text" id="qe-name" placeholder="Nombre del cuestionario">
+                    <label>Descripcion</label>
+                    <textarea id="qe-description" rows="2" placeholder="Descripcion opcional"></textarea>
+                </div>
+
+                <h3>Preguntas</h3>
+                <div id="qe-questions-list" class="qe-questions-list"></div>
+                <button id="btn-add-question" class="btn-secondary btn-sm" style="margin-top: var(--space-3);">
+                    <i data-lucide="plus" style="width:16px;height:16px;"></i> Agregar pregunta
+                </button>
+
+                <div id="qe-versions-section" class="hidden" style="margin-top: var(--space-6);">
+                    <h3>Historial de versiones</h3>
+                    <div id="qe-versions-list"></div>
+                </div>
+            </div>
+        </div>
+
         <!-- ====== Dashboard del Curso (pantalla principal) ====== -->
         <main id="course-view" class="hidden">
             <div class="course-view-header">
@@ -192,6 +242,12 @@
             </div>
 
             <div id="dashboard-stats" class="summary-box"></div>
+            <div id="dashboard-questionnaire-selector" class="summary-box" style="margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-3);">
+                <label for="active-questionnaire" style="font-weight: 600; font-size: 0.875rem; color: var(--text-secondary); white-space: nowrap;">Cuestionario activo:</label>
+                <select id="active-questionnaire" style="flex: 1; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); font-size: 0.875rem;">
+                    <option value="">Predeterminado (19 preguntas)</option>
+                </select>
+            </div>
             <div id="dashboard-students-list" class="students-list list-container"></div>
 
             <div class="dashboard-actions">
@@ -294,17 +350,17 @@
 
                 <!-- Tarjeta de pregunta -->
                 <div id="question-card" class="question-card">
+                    <div id="question-section-header" class="question-section-header"></div>
+                    <div id="question-title-label" class="question-title-label"></div>
                     <div id="current-question-text" class="question-text-large"></div>
                     <div id="current-question-options" class="answer-buttons"></div>
+                    <div id="question-skip-text" class="question-skip-text">Omitir pregunta</div>
+                </div>
 
-                    <div class="question-nav">
-                        <button id="prev-question-btn" class="btn-secondary prev-btn">&larr; Pregunta anterior</button>
-                        <button id="skip-question-btn" class="btn-secondary skip-btn">Omitir pregunta</button>
-                    </div>
-                    <div class="question-save-bar">
-                        <button id="btn-save-questionnaire" class="btn-secondary btn-sm">Guardar y salir</button>
-                        <button id="btn-skip-all-questions" class="btn-danger btn-sm">Generar informe solo con observaciones</button>
-                    </div>
+                <div class="wizard-footer">
+                    <button id="prev-question-btn" class="icon-btn" title="Pregunta anterior"><i data-lucide="arrow-left"></i></button>
+                    <button id="btn-save-questionnaire" class="icon-btn" title="Guardar y salir"><i data-lucide="save"></i></button>
+                    <button id="btn-skip-all-questions" class="btn-danger btn-sm">Generar solo con observaciones</button>
                 </div>
 
                 <!-- Nota: El panel de asistencia fue movido al panel de observaciones -->

@@ -1,7 +1,52 @@
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List
+from typing import Dict, List
+
+
+def calculate_attendance_from_observations(observaciones: List) -> dict:
+    """Calcula totales de asistencia a partir de las observaciones."""
+    total_presentes = 0
+    presentes_exc = 0
+    tarde = 0
+    total_ausencias = 0
+    inasistencias_seguidas = 0
+    max_seguidas = 0
+    seguidas_actual = 0
+
+    for obs in observaciones:
+        codigo = (obs.codigo if hasattr(obs, "codigo") else obs.get("codigo", "")).strip().upper()
+        if codigo == "P":
+            total_presentes += 1
+            seguidas_actual = 0
+        elif codigo == "P-EXC":
+            total_presentes += 1
+            presentes_exc += 1
+            seguidas_actual = 0
+        elif codigo == "P-X":
+            total_presentes += 1
+            seguidas_actual = 0
+        elif codigo == "T":
+            total_presentes += 1
+            tarde += 1
+            seguidas_actual = 0
+        elif codigo == "A":
+            total_ausencias += 1
+            seguidas_actual += 1
+            if seguidas_actual > max_seguidas:
+                max_seguidas = seguidas_actual
+        else:
+            seguidas_actual = 0
+
+    inasistencias_seguidas = max_seguidas
+
+    return {
+        "total_presentes": total_presentes,
+        "presentes_exc": presentes_exc,
+        "tarde": tarde,
+        "total_ausencias": total_ausencias,
+        "inasistencias_seguidas": inasistencias_seguidas,
+    }
 
 
 @dataclass
@@ -46,13 +91,10 @@ def parse_student_file(filepath: Path) -> Student:
     # Extraer observaciones de la tabla
     observaciones = _parse_observations_table(content)
 
-    # Extraer resumen
-    total_ausencias = _extract_int(content, r"\*\*Total Ausencias:\*\*\s*(\d+)")
-    total_presentes = _extract_int(content, r"\*\*Total Presentes:\*\*\s*(\d+)")
-    presentes_exc = _extract_int(content, r"\*\*P-EXC:\*\*\s*(\d+)")
-    tarde = _extract_int(content, r"\*\*Tarde:\*\*\s*(\d+)")
-    inasistencias_seguidas = _extract_int(content, r"\*\*Inasistencias seguidas:\*\*\s*(\d+)")
+    # Recalcular asistencia desde observaciones (ignorar Resumen potencialmente desactualizado)
+    stats = calculate_attendance_from_observations(observaciones)
 
+    # Extraer última actualización del Resumen
     ultima_act_match = re.search(r"\*\*Última actualización:\*\*\s*(.+)", content)
     ultima_actualizacion = ultima_act_match.group(1).strip() if ultima_act_match else ""
 
@@ -61,11 +103,11 @@ def parse_student_file(filepath: Path) -> Student:
         lista_numero=lista_numero,
         curso=curso,
         observaciones=observaciones,
-        total_ausencias=total_ausencias,
-        total_presentes=total_presentes,
-        presentes_exc=presentes_exc,
-        tarde=tarde,
-        inasistencias_seguidas=inasistencias_seguidas,
+        total_ausencias=stats["total_ausencias"],
+        total_presentes=stats["total_presentes"],
+        presentes_exc=stats["presentes_exc"],
+        tarde=stats["tarde"],
+        inasistencias_seguidas=stats["inasistencias_seguidas"],
         ultima_actualizacion=ultima_actualizacion,
     )
 

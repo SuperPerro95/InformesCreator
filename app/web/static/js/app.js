@@ -387,6 +387,9 @@ let sessionReports = [];
 // Cuestionario paso a paso
 let questionnaireAnswers = {};
 let currentQuestionIndex = 0;
+let currentQuestionnaire = null;
+let currentQuestions = null;
+let totalQuestions = 0;
 
 // Auth state
 let authState = { loggedIn: false, username: '' };
@@ -416,6 +419,8 @@ function handleHashChange() {
     hide($('courses-menu'));
     hide($('course-view'));
     hide($('wizard'));
+    hide($('questionnaires-screen'));
+    hide($('questionnaire-editor'));
     updateHelpButton('');
     currentHelpScreen = '';
     return;
@@ -431,6 +436,8 @@ function handleHashChange() {
     hide($('courses-menu'));
     hide($('course-view'));
     hide($('wizard'));
+    hide($('questionnaires-screen'));
+    hide($('questionnaire-editor'));
     updateHelpButton('');
     currentHelpScreen = '';
     return;
@@ -445,6 +452,11 @@ function handleHashChange() {
   if (hash === '#/onboarding') {
     if (!$('onboarding-overlay').classList.contains('hidden')) return;
     hide($('hero-screen'));
+    hide($('courses-menu'));
+    hide($('course-view'));
+    hide($('wizard'));
+    hide($('questionnaires-screen'));
+    hide($('questionnaire-editor'));
     show(document.querySelector('header'));
     show($('onboarding-overlay'));
     updateHelpButton('onboarding');
@@ -454,11 +466,13 @@ function handleHashChange() {
 
   // Courses menu
   if (hash === '#/courses') {
-    if (!$('courses-menu').classList.contains('hidden') && $('course-view').classList.contains('hidden') && $('wizard').classList.contains('hidden')) return;
+    if (!$('courses-menu').classList.contains('hidden') && $('course-view').classList.contains('hidden') && $('wizard').classList.contains('hidden') && $('questionnaires-screen').classList.contains('hidden') && $('questionnaire-editor').classList.contains('hidden')) return;
     hide($('hero-screen'));
     hide($('onboarding-overlay'));
     hide($('course-view'));
     hide($('wizard'));
+    hide($('questionnaires-screen'));
+    hide($('questionnaire-editor'));
     show(document.querySelector('header'));
     show($('courses-menu'));
     loadCoursesGrid();
@@ -471,7 +485,7 @@ function handleHashChange() {
   const courseMatch = hash.match(/#\/course\/(.+)/);
   if (courseMatch) {
     const course = courseMatch[1].replace(/-/g, ' ');
-    if (selectedCourse === course && !$('course-view').classList.contains('hidden') && $('wizard').classList.contains('hidden')) {
+    if (selectedCourse === course && !$('course-view').classList.contains('hidden') && $('wizard').classList.contains('hidden') && $('questionnaires-screen').classList.contains('hidden') && $('questionnaire-editor').classList.contains('hidden')) {
       return;
     }
     if (!courseSessions[course] || !allStudents.length || allStudents[0]?.curso !== course) {
@@ -482,6 +496,8 @@ function handleHashChange() {
     hide($('onboarding-overlay'));
     hide($('courses-menu'));
     hide($('wizard'));
+    hide($('questionnaires-screen'));
+    hide($('questionnaire-editor'));
     show(document.querySelector('header'));
     show($('course-view'));
     selectedCourse = course;
@@ -510,9 +526,72 @@ function handleHashChange() {
         return;
       }
     }
+    hide($('questionnaires-screen'));
+    hide($('questionnaire-editor'));
     showWizardFromHash(substep);
     return;
   }
+
+  // Questionnaires list
+  if (hash === '#/questionnaires') {
+    if (!$('questionnaires-screen').classList.contains('hidden') && $('questionnaire-editor').classList.contains('hidden')) return;
+    hide($('hero-screen'));
+    hide($('onboarding-overlay'));
+    hide($('courses-menu'));
+    hide($('course-view'));
+    hide($('wizard'));
+    hide($('questionnaire-editor'));
+    show(document.querySelector('header'));
+    show($('questionnaires-screen'));
+    loadQuestionnairesList();
+    updateHelpButton('');
+    currentHelpScreen = '';
+    return;
+  }
+
+  // Questionnaire editor
+  const qeMatch = hash.match(/#\/questionnaires\/(new|edit)\/(.+)/);
+  if (qeMatch) {
+    const mode = qeMatch[1];
+    const id = mode === 'edit' ? qeMatch[2] : null;
+    hide($('hero-screen'));
+    hide($('onboarding-overlay'));
+    hide($('courses-menu'));
+    hide($('course-view'));
+    hide($('wizard'));
+    hide($('questionnaires-screen'));
+    show(document.querySelector('header'));
+    show($('questionnaire-editor'));
+    if (mode === 'new' && !editingQuestionnaireId) {
+      openQuestionnaireEditor(null);
+    } else if (mode === 'edit' && editingQuestionnaireId !== id) {
+      openQuestionnaireEditor(id);
+    }
+    updateHelpButton('');
+    currentHelpScreen = '';
+    return;
+  }
+}
+
+async function loadQuestionnaireForCourse(course) {
+  try {
+    const data = await apiGet(`/courses/${encodeURIComponent(course)}/questionnaire`);
+    const qid = data.questionnaire_id;
+    if (qid && qid !== 'default') {
+      const qData = await apiGet(`/questionnaires/${qid}`);
+      if (qData && qData.questions && qData.questions.length > 0) {
+        currentQuestionnaire = qData;
+        currentQuestions = qData.questions;
+        totalQuestions = qData.questions.length;
+        return;
+      }
+    }
+  } catch (err) {
+    console.error('Error cargando cuestionario del curso:', err);
+  }
+  currentQuestionnaire = null;
+  currentQuestions = ALL_QUESTIONS;
+  totalQuestions = ALL_QUESTIONS.length;
 }
 
 async function loadStudentsForCourse(course) {
@@ -564,6 +643,7 @@ async function initFromHashCourse(course, target, substep) {
     allStudents = data.students;
     currentStudentIndex = 0;
     selectedCourse = course;
+    await loadQuestionnaireForCourse(course);
     // Llamar directamente al handler en vez de navigateTo para evitar loop
     handleHashChange();
   } catch (err) {
@@ -585,38 +665,71 @@ const MODEL_INFO = {
   'llama3.1': { name: 'Llama 3.1 (Local)', desc: 'Creado por Meta (EE.UU.). Buen soporte multilingue y razonamiento. Funciona sin internet.' },
 };
 
+function loadAnswersFromSaved(saved) {
+  if (!saved) return;
+  // Map section-based answers to index-based
+  const sectionCounters = {};
+  for (let i = 0; i < currentQuestions.length; i++) {
+    const q = currentQuestions[i];
+    if (q.section === 'observaciones') {
+      questionnaireAnswers[i] = saved.particular_observations || '';
+      continue;
+    }
+    const sectionData = saved[q.section];
+    if (!sectionCounters[q.section]) sectionCounters[q.section] = 0;
+    const idx = sectionCounters[q.section];
+    sectionCounters[q.section]++;
+    if (Array.isArray(sectionData) && idx < sectionData.length) {
+      questionnaireAnswers[i] = sectionData[idx];
+    } else if (idx === 0 && typeof sectionData === 'string') {
+      questionnaireAnswers[i] = sectionData;
+    }
+  }
+}
+
 function getReportFilename(nombreCompleto) {
   return 'Informe_' + nombreCompleto.replace(/, /g, '_').replace(/ /g, '_') + '.md';
 }
 
 // ===================== Preguntas unificadas =====================
 const ALL_QUESTIONS = [
-  { section: 'valoracion', text: 'Valoracion preliminar del alumno', options: ['TEA', 'TEP', 'TED'], labels: ['TEA - Trayectoria Educativa Alcanzada', 'TEP - Trayectoria Educativa en Proceso', 'TED - Trayectoria Educativa Discontinua'] },
-  { section: 'pedagogical', text: 'Participacion: Interviene de manera pertinente durante las explicaciones o debates?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'pedagogical', text: 'Seguimiento de consignas: Comprende y ejecuta las instrucciones de trabajo a la primera mencion?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'pedagogical', text: 'Autonomia: Inicia y avanza en sus tareas sin necesidad de supervision constante?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'pedagogical', text: 'Organizacion: Trae y mantiene ordenados los materiales necesarios para la clase?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'pedagogical', text: 'Persistencia: Mantiene el esfuerzo ante una tarea que le resulta dificil o compleja?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'pedagogical', text: 'Cumplimiento: Entrega las actividades o producciones en los plazos establecidos?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'socioemotional', text: 'Integracion social: Trabaja de forma colaborativa y armonica con sus companeros?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'socioemotional', text: 'Gestion del error: Acepta las correcciones o los errores sin mostrar frustracion excesiva o bloqueo?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'socioemotional', text: 'Comunicacion: Expresa sus necesidades, dudas o desacuerdos de manera respetuosa?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'socioemotional', text: 'Respeto a las normas: Se ajusta a los acuerdos de convivencia establecidos en el aula?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'socioemotional', text: 'Empatia: Muestra actitudes de ayuda o respeto hacia las dificultades de los demas?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'socioemotional', text: 'Nivel de motivacion: Muestra curiosidad o disposicion positiva hacia las actividades propuestas?', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
-  { section: 'content', text: 'Explica con sus propias palabras', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
-  { section: 'content', text: 'Relaciona con temas previos', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
-  { section: 'content', text: 'Aplica en ejercicios practicos', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
-  { section: 'content', text: 'Usa terminologia adecuada', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
-  { section: 'content', text: 'Justifica sus respuestas', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
-  { section: 'observaciones', text: 'Observaciones particulares (opcional)', options: null, labels: null },
+  { section: 'valoracion', title: 'Valoracion preliminar del alumno', text: 'Valoracion preliminar del alumno', answer_type: 'tea_tep_ted', options: ['TEA', 'TEP', 'TED'], labels: ['TEA - Trayectoria Educativa Alcanzada', 'TEP - Trayectoria Educativa en Proceso', 'TED - Trayectoria Educativa Discontinua'] },
+  { section: 'pedagogical', title: 'Participacion', text: 'Interviene de manera pertinente durante las explicaciones o debates?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'pedagogical', title: 'Seguimiento de consignas', text: 'Comprende y ejecuta las instrucciones de trabajo a la primera mencion?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'pedagogical', title: 'Autonomia', text: 'Inicia y avanza en sus tareas sin necesidad de supervision constante?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'pedagogical', title: 'Organizacion', text: 'Trae y mantiene ordenados los materiales necesarios para la clase?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'pedagogical', title: 'Persistencia', text: 'Mantiene el esfuerzo ante una tarea que le resulta dificil o compleja?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'pedagogical', title: 'Cumplimiento', text: 'Entrega las actividades o producciones en los plazos establecidos?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'socioemotional', title: 'Integracion social', text: 'Trabaja de forma colaborativa y armonica con sus companeros?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'socioemotional', title: 'Gestion del error', text: 'Acepta las correcciones o los errores sin mostrar frustracion excesiva o bloqueo?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'socioemotional', title: 'Comunicacion', text: 'Expresa sus necesidades, dudas o desacuerdos de manera respetuosa?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'socioemotional', title: 'Respeto a las normas', text: 'Se ajusta a los acuerdos de convivencia establecidos en el aula?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'socioemotional', title: 'Empatia', text: 'Muestra actitudes de ayuda o respeto hacia las dificultades de los demas?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'socioemotional', title: 'Nivel de motivacion', text: 'Muestra curiosidad o disposicion positiva hacia las actividades propuestas?', answer_type: 'frequency_4', options: [1, 2, 3, 4], labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'] },
+  { section: 'content', title: 'Explica con sus propias palabras', text: 'Explica con sus propias palabras', answer_type: 'achievement_3', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
+  { section: 'content', title: 'Relaciona con temas previos', text: 'Relaciona con temas previos', answer_type: 'achievement_3', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
+  { section: 'content', title: 'Aplica en ejercicios practicos', text: 'Aplica en ejercicios practicos', answer_type: 'achievement_3', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
+  { section: 'content', title: 'Usa terminologia adecuada', text: 'Usa terminologia adecuada', answer_type: 'achievement_3', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
+  { section: 'content', title: 'Justifica sus respuestas', text: 'Justifica sus respuestas', answer_type: 'achievement_3', options: [1, 2, 3], labels: ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'] },
+  { section: 'observaciones', title: 'Observaciones particulares', text: 'Observaciones particulares (opcional)', answer_type: 'free_text', options: null, labels: null },
 ];
 
-const TOTAL_QUESTIONS = ALL_QUESTIONS.length;
+currentQuestions = ALL_QUESTIONS;
+totalQuestions = ALL_QUESTIONS.length;
 
 // ===================== API Calls =====================
 async function apiGet(path) {
   const res = await fetch(`/api${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+async function apiPut(path, body) {
+  const res = await fetch(`/api${path}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return res.json();
 }
@@ -910,6 +1023,9 @@ async function openCourse(course) {
     allStudents = data.students;
     currentStudentIndex = 0;
 
+    // Load questionnaire
+    await loadQuestionnaireForCourse(course);
+
     // Cargar contenidos en background
     loadContents(course);
 
@@ -1038,11 +1154,7 @@ function renderDashboard() {
         const saved = sess.respuestas?.[student.filename];
         if (saved) {
           questionnaireAnswers = {};
-          questionnaireAnswers[0] = saved.valoracion || 0;
-          (saved.pedagogical || []).forEach((v, i) => { questionnaireAnswers[i + 1] = v; });
-          (saved.socioemotional || []).forEach((v, i) => { questionnaireAnswers[i + 7] = v; });
-          (saved.content || []).forEach((v, i) => { questionnaireAnswers[i + 13] = v; });
-          questionnaireAnswers[18] = saved.particular_observations || '';
+          loadAnswersFromSaved(saved);
         }
         if (!$('course-contents').value) await loadContents(selectedCourse);
         showWizard();
@@ -1100,6 +1212,36 @@ function renderDashboard() {
     });
   });
   if (window.lucide) lucide.createIcons();
+  renderQuestionnaireSelector();
+}
+
+async function renderQuestionnaireSelector() {
+  const select = $('active-questionnaire');
+  if (!select) return;
+  try {
+    const [allData, activeData] = await Promise.all([
+      apiGet('/questionnaires'),
+      apiGet(`/courses/${encodeURIComponent(selectedCourse)}/questionnaire`)
+    ]);
+    const activeId = activeData.questionnaire_id || '';
+    const options = [`<option value="">Predeterminado (19 preguntas)</option>`];
+    for (const q of allData.questionnaires || []) {
+      const selected = q.id === activeId ? ' selected' : '';
+      options.push(`<option value="${q.id}"${selected}>${q.name} (${q.question_count || 0} preguntas)</option>`);
+    }
+    select.innerHTML = options.join('');
+    select.onchange = async (e) => {
+      const qid = e.target.value || 'default';
+      try {
+        await apiPost(`/courses/${encodeURIComponent(selectedCourse)}/questionnaire`, { questionnaire_id: qid });
+        await loadQuestionnaireForCourse(selectedCourse);
+      } catch (err) {
+        alert('Error guardando cuestionario activo: ' + err.message);
+      }
+    };
+  } catch (err) {
+    console.error('Error cargando cuestionarios:', err);
+  }
 }
 
 // ===================== Wizard Navigation =====================
@@ -1406,21 +1548,17 @@ function continueQuestionnaireForCurrentStudent() {
 
   const savedAnswers = session?.respuestas?.[student.filename];
   if (savedAnswers) {
-    questionnaireAnswers[0] = savedAnswers.valoracion || 'TEP';
-    (savedAnswers.pedagogical || []).forEach((v, i) => { questionnaireAnswers[i + 1] = v; });
-    (savedAnswers.socioemotional || []).forEach((v, i) => { questionnaireAnswers[i + 7] = v; });
-    (savedAnswers.content || []).forEach((v, i) => { questionnaireAnswers[i + 13] = v; });
-    questionnaireAnswers[18] = savedAnswers.particular_observations || '';
+    loadAnswersFromSaved(savedAnswers);
   }
 
   let startIndex = 0;
-  for (let i = 0; i < TOTAL_QUESTIONS; i++) {
+  for (let i = 0; i < totalQuestions; i++) {
     if (questionnaireAnswers[i] === undefined) {
       startIndex = i;
       break;
     }
   }
-  if (startIndex >= TOTAL_QUESTIONS) startIndex = TOTAL_QUESTIONS - 1;
+  if (startIndex >= totalQuestions) startIndex = totalQuestions - 1;
 
   renderQuestion(startIndex);
 }
@@ -1443,15 +1581,47 @@ function startQuestionnaireForCurrentStudent() {
   if (savedAnswers) {
     const reuse = confirm(`Este alumno ya tiene respuestas guardadas. Queres reutilizarlas?`);
     if (reuse) {
-      questionnaireAnswers[0] = savedAnswers.valoracion || 'TEP';
-      (savedAnswers.pedagogical || []).forEach((v, i) => { questionnaireAnswers[i + 1] = v; });
-      (savedAnswers.socioemotional || []).forEach((v, i) => { questionnaireAnswers[i + 7] = v; });
-      (savedAnswers.content || []).forEach((v, i) => { questionnaireAnswers[i + 13] = v; });
-      questionnaireAnswers[18] = savedAnswers.particular_observations || '';
+      loadAnswersFromSaved(savedAnswers);
     }
   }
 
   renderQuestion(0);
+}
+
+// ===================== Questionnaire UI Helpers =====================
+function _getQuestionTitle(q) {
+  if (q.title) return q.title;
+  const colonIdx = q.text.indexOf(':');
+  if (colonIdx > 0) return q.text.substring(0, colonIdx).trim();
+  return q.text;
+}
+
+function _getQuestionBody(q) {
+  const colonIdx = q.text.indexOf(':');
+  if (colonIdx > 0) return q.text.substring(colonIdx + 1).trim();
+  return '';
+}
+
+function _getSectionDisplayName(section) {
+  const names = {
+    valoracion: 'Valoracion',
+    pedagogical: 'Pedagogico',
+    socioemotional: 'Socioemocional',
+    content: 'Contenidos',
+    observaciones: 'Observaciones'
+  };
+  return names[section] || section;
+}
+
+function _getOptionIcon(answerType, index) {
+  const icons = {
+    tea_tep_ted: ['check-circle', 'circle', 'alert-triangle'],
+    frequency_4: ['x', 'minus', 'plus', 'check-check'],
+    achievement_3: ['alert-circle', 'clock', 'check-circle']
+  };
+  const list = icons[answerType];
+  if (!list) return null;
+  return list[index] || null;
 }
 
 // ===================== Step 1: Questionnaire =====================
@@ -1461,19 +1631,32 @@ function setupQuestionnaireForCurrentStudent() {
 
 function renderQuestion(index) {
   currentQuestionIndex = index;
-  const q = ALL_QUESTIONS[index];
+  const q = currentQuestions[index];
   const savedValue = questionnaireAnswers[index];
 
-  const pct = ((index + 1) / TOTAL_QUESTIONS) * 100;
+  const pct = ((index + 1) / totalQuestions) * 100;
   $('question-progress-fill').style.width = `${pct}%`;
-  $('question-counter').textContent = `Pregunta ${index + 1} de ${TOTAL_QUESTIONS}`;
+  $('question-counter').textContent = `Pregunta ${index + 1} de ${totalQuestions}`;
 
-  $('current-question-text').textContent = q.text;
+  // Section header
+  $('question-section-header').textContent = _getSectionDisplayName(q.section);
+
+  // Title label
+  const title = _getQuestionTitle(q);
+  const body = _getQuestionBody(q);
+  const displayBody = body || (q.text !== title ? q.text : '');
+  $('question-title-label').textContent = title;
+  $('current-question-text').textContent = displayBody || title;
+  if (!displayBody || title === displayBody) {
+    hide($('question-title-label'));
+  } else {
+    show($('question-title-label'));
+  }
 
   const optionsContainer = $('current-question-options');
   optionsContainer.innerHTML = '';
 
-  if (q.section === 'observaciones') {
+  if (q.answer_type === 'free_text') {
     const textarea = document.createElement('textarea');
     textarea.rows = 4;
     textarea.placeholder = 'Situaciones puntuales...';
@@ -1493,21 +1676,14 @@ function renderQuestion(index) {
     continueBtn.addEventListener('click', () => handleAnswer(textarea.value));
     optionsContainer.appendChild(textarea);
     optionsContainer.appendChild(continueBtn);
-  } else if (q.section === 'valoracion') {
+  } else if (q.options) {
     q.options.forEach((opt, i) => {
       const btn = document.createElement('button');
       btn.className = 'answer-btn';
-      btn.innerHTML = `<strong>${opt}</strong><br><span style="font-size:0.85rem">${q.labels[i]}</span>`;
-      if (savedValue === opt) btn.classList.add('selected');
-      btn.addEventListener('click', () => handleAnswer(opt));
-      optionsContainer.appendChild(btn);
-    });
-  } else {
-    q.options.forEach((opt, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'answer-btn';
-      btn.textContent = q.labels[i];
-      if (savedValue === opt) btn.classList.add('selected');
+      const iconName = _getOptionIcon(q.answer_type, i);
+      const iconHtml = iconName ? `<span class="btn-icon">${icon(iconName)}</span>` : '';
+      btn.innerHTML = `${iconHtml}<span class="btn-text">${q.labels[i]}</span>`;
+      if (savedValue === opt || savedValue === q.labels[i]) btn.classList.add('selected');
       btn.addEventListener('click', () => handleAnswer(opt));
       optionsContainer.appendChild(btn);
     });
@@ -1523,7 +1699,7 @@ function renderQuestion(index) {
 
 function handleAnswer(value) {
   questionnaireAnswers[currentQuestionIndex] = value;
-  if (currentQuestionIndex >= TOTAL_QUESTIONS - 1) {
+  if (currentQuestionIndex >= totalQuestions - 1) {
     finishQuestionnaire();
   } else {
     renderQuestion(currentQuestionIndex + 1);
@@ -1531,7 +1707,7 @@ function handleAnswer(value) {
 }
 
 function skipQuestion() {
-  if (currentQuestionIndex >= TOTAL_QUESTIONS - 1) {
+  if (currentQuestionIndex >= totalQuestions - 1) {
     finishQuestionnaire();
   } else {
     renderQuestion(currentQuestionIndex + 1);
@@ -1621,31 +1797,24 @@ async function skipAllAndGenerate() {
 // La asistencia ahora se maneja directamente en el panel de observaciones.
 
 function collectAnswers() {
-  const valRaw = questionnaireAnswers[0];
-  const valoracion = (valRaw === 'TEA' || valRaw === 'TEP' || valRaw === 'TED') ? valRaw : null;
+  const answers = { attendance: attendanceData };
 
-  const pedagogical = [];
-  const socioemotional = [];
-  const content = [];
-
-  for (let i = 1; i < TOTAL_QUESTIONS; i++) {
-    const q = ALL_QUESTIONS[i];
+  for (let i = 0; i < totalQuestions; i++) {
+    const q = currentQuestions[i];
     const val = questionnaireAnswers[i];
-    if (q.section === 'pedagogical') pedagogical.push(val !== undefined && val !== 0 ? parseInt(val) : 0);
-    else if (q.section === 'socioemotional') socioemotional.push(val !== undefined && val !== 0 ? parseInt(val) : 0);
-    else if (q.section === 'content') content.push(val !== undefined && val !== 0 ? parseInt(val) : 0);
+    if (q.section === 'observaciones') {
+      answers.particular_observations = val || '';
+      continue;
+    }
+    if (!answers[q.section]) answers[q.section] = [];
+    if (q.section === 'valoracion') {
+      answers[q.section] = (val === 'TEA' || val === 'TEP' || val === 'TED') ? val : null;
+    } else {
+      answers[q.section].push(val !== undefined && val !== 0 ? parseInt(val) : 0);
+    }
   }
 
-  const particular = questionnaireAnswers[TOTAL_QUESTIONS - 1] || '';
-
-  return {
-    valoracion,
-    pedagogical,
-    socioemotional,
-    content,
-    particular_observations: particular,
-    attendance: attendanceData
-  };
+  return answers;
 }
 
 // ===================== Step 2: Variants + Model =====================
@@ -2159,7 +2328,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   $('prev-question-btn').addEventListener('click', goToPreviousQuestion);
-  $('skip-question-btn').addEventListener('click', skipQuestion);
   $('btn-save-questionnaire').addEventListener('click', saveQuestionnaire);
   $('btn-skip-all-questions').addEventListener('click', skipAllAndGenerate);
 
@@ -2270,6 +2438,14 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-register').addEventListener('click', doRegister);
   $('link-register').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/register'); });
   $('link-login').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/login'); });
+
+  // Questionnaires
+  $('btn-cuestionarios').addEventListener('click', () => navigateTo('#/questionnaires'));
+  $('btn-close-questionnaires').addEventListener('click', () => navigateTo('#/courses'));
+  $('btn-new-questionnaire').addEventListener('click', () => navigateTo('#/questionnaires/new/'));
+  $('btn-save-questionnaire-editor').addEventListener('click', saveQuestionnaireEditor);
+  $('btn-cancel-questionnaire-editor').addEventListener('click', () => navigateTo('#/questionnaires'));
+  $('btn-add-question').addEventListener('click', addEditorQuestion);
 
   // Auth: init
   initAuth();
@@ -2438,6 +2614,294 @@ async function doConfirmDeleteCourse() {
     loadCoursesGrid();
   } catch (err) {
     alert('Error eliminando curso: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+// ===================== Questionnaire Editor =====================
+let editingQuestionnaireId = null;
+let editorQuestions = [];
+
+function showQuestionnairesScreen() {
+  hide($('courses-menu'));
+  hide($('course-view'));
+  hide($('wizard'));
+  show($('questionnaires-screen'));
+  loadQuestionnairesList();
+}
+
+function hideQuestionnairesScreen() {
+  hide($('questionnaires-screen'));
+  show($('courses-menu'));
+}
+
+async function loadQuestionnairesList() {
+  setLoading(true);
+  try {
+    const data = await apiGet('/questionnaires');
+    const container = $('questionnaires-list');
+    if (!data.questionnaires || data.questionnaires.length === 0) {
+      container.innerHTML = '<p class="hint">No hay cuestionarios personalizados.</p>';
+      setLoading(false);
+      return;
+    }
+    container.innerHTML = data.questionnaires.map(q => `
+      <div class="questionnaire-card" data-id="${q.id}">
+        <div class="questionnaire-card-header">
+          <h4>${q.name}</h4>
+          <span class="badge badge-subtle">${q.question_count || 0} preguntas</span>
+        </div>
+        <p class="hint">${q.description || ''}</p>
+        <div class="questionnaire-card-actions">
+          <button class="btn-ghost btn-sm qe-action-edit" data-id="${q.id}">Editar</button>
+          <button class="btn-ghost btn-sm qe-action-duplicate" data-id="${q.id}">Duplicar</button>
+          <button class="btn-ghost btn-sm qe-action-versions" data-id="${q.id}">Versiones</button>
+          <button class="btn-danger btn-sm qe-action-delete" data-id="${q.id}">Eliminar</button>
+        </div>
+      </div>
+    `).join('');
+
+    container.querySelectorAll('.qe-action-edit').forEach(btn => {
+      btn.addEventListener('click', () => navigateTo(`#/questionnaires/edit/${btn.dataset.id}`));
+    });
+    container.querySelectorAll('.qe-action-duplicate').forEach(btn => {
+      btn.addEventListener('click', () => duplicateQuestionnaire(btn.dataset.id));
+    });
+    container.querySelectorAll('.qe-action-versions').forEach(btn => {
+      btn.addEventListener('click', () => openQuestionnaireEditor(btn.dataset.id, true));
+    });
+    container.querySelectorAll('.qe-action-delete').forEach(btn => {
+      btn.addEventListener('click', () => deleteQuestionnaire(btn.dataset.id));
+    });
+  } catch (err) {
+    console.error('Error cargando cuestionarios:', err);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function openQuestionnaireEditor(id, showVersions = false) {
+  editingQuestionnaireId = id;
+  editorQuestions = [];
+  $('editor-title').textContent = id ? 'Editar cuestionario' : 'Nuevo cuestionario';
+  $('qe-name').value = '';
+  $('qe-description').value = '';
+  hide($('qe-versions-section'));
+
+  if (id) {
+    setLoading(true);
+    try {
+      const data = await apiGet(`/questionnaires/${id}`);
+      $('qe-name').value = data.name || '';
+      $('qe-description').value = data.description || '';
+      editorQuestions = JSON.parse(JSON.stringify(data.questions || []));
+      if (showVersions) {
+        show($('qe-versions-section'));
+        loadQuestionnaireVersions(id);
+      }
+    } catch (err) {
+      console.error('Error cargando cuestionario:', err);
+    } finally {
+      setLoading(false);
+    }
+  } else {
+    // Nuevo: copiar preguntas por defecto
+    editorQuestions = JSON.parse(JSON.stringify(ALL_QUESTIONS));
+  }
+
+  renderEditorQuestions();
+  hide($('questionnaires-screen'));
+  show($('questionnaire-editor'));
+}
+
+function closeQuestionnaireEditor() {
+  editingQuestionnaireId = null;
+  editorQuestions = [];
+  navigateTo('#/questionnaires');
+}
+
+async function saveQuestionnaireEditor() {
+  const name = $('qe-name').value.trim();
+  if (!name) {
+    alert('Ingresa un nombre para el cuestionario.');
+    return;
+  }
+  const questions = editorQuestions.map(q => ({
+    ...q,
+    options: q.options ?? [],
+    labels: q.labels ?? []
+  }));
+  const payload = {
+    name,
+    description: $('qe-description').value.trim(),
+    questions
+  };
+  setLoading(true);
+  try {
+    if (editingQuestionnaireId) {
+      await apiPut(`/questionnaires/${editingQuestionnaireId}`, payload);
+    } else {
+      await apiPost('/questionnaires', payload);
+    }
+    closeQuestionnaireEditor();
+  } catch (err) {
+    alert('Error guardando cuestionario: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+function renderEditorQuestions() {
+  const container = $('qe-questions-list');
+  container.innerHTML = editorQuestions.map((q, i) => `
+    <div class="qe-question-item" data-index="${i}">
+      <div class="qe-question-fields">
+        <select class="qe-section" data-index="${i}">
+          <option value="valoracion" ${q.section === 'valoracion' ? 'selected' : ''}>Valoracion</option>
+          <option value="pedagogical" ${q.section === 'pedagogical' ? 'selected' : ''}>Pedagogico</option>
+          <option value="socioemotional" ${q.section === 'socioemotional' ? 'selected' : ''}>Socioemocional</option>
+          <option value="content" ${q.section === 'content' ? 'selected' : ''}>Contenidos</option>
+          <option value="observaciones" ${q.section === 'observaciones' ? 'selected' : ''}>Observaciones</option>
+        </select>
+        <input type="text" class="qe-title" data-index="${i}" placeholder="Titulo" value="${q.title || ''}">
+        <input type="text" class="qe-text" data-index="${i}" placeholder="Texto de la pregunta" value="${q.text || ''}">
+        <select class="qe-answer-type" data-index="${i}">
+          <option value="tea_tep_ted" ${q.answer_type === 'tea_tep_ted' ? 'selected' : ''}>TEA/TEP/TED</option>
+          <option value="frequency_4" ${q.answer_type === 'frequency_4' ? 'selected' : ''}>Frecuencia 1-4</option>
+          <option value="achievement_3" ${q.answer_type === 'achievement_3' ? 'selected' : ''}>Logro 1-3</option>
+          <option value="free_text" ${q.answer_type === 'free_text' ? 'selected' : ''}>Texto libre</option>
+        </select>
+      </div>
+      <div class="qe-question-actions">
+        <button class="btn-ghost btn-sm" data-action="up" data-index="${i}" ${i === 0 ? 'disabled' : ''}>▲</button>
+        <button class="btn-ghost btn-sm" data-action="down" data-index="${i}" ${i === editorQuestions.length - 1 ? 'disabled' : ''}>▼</button>
+        <button class="btn-danger btn-sm" data-action="remove" data-index="${i}">✕</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.qe-section').forEach(el => {
+    el.addEventListener('change', (e) => { editorQuestions[e.target.dataset.index].section = e.target.value; });
+  });
+  container.querySelectorAll('.qe-title').forEach(el => {
+    el.addEventListener('input', (e) => { editorQuestions[e.target.dataset.index].title = e.target.value; });
+  });
+  container.querySelectorAll('.qe-text').forEach(el => {
+    el.addEventListener('input', (e) => { editorQuestions[e.target.dataset.index].text = e.target.value; });
+  });
+  container.querySelectorAll('.qe-answer-type').forEach(el => {
+    el.addEventListener('change', (e) => {
+      const idx = e.target.dataset.index;
+      editorQuestions[idx].answer_type = e.target.value;
+      editorQuestions[idx].options = getDefaultOptions(e.target.value);
+      editorQuestions[idx].labels = getDefaultLabels(e.target.value);
+    });
+  });
+  container.querySelectorAll('[data-action]').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      const action = e.currentTarget.dataset.action;
+      const idx = parseInt(e.currentTarget.dataset.index);
+      if (action === 'up') moveEditorQuestion(idx, -1);
+      else if (action === 'down') moveEditorQuestion(idx, 1);
+      else if (action === 'remove') removeEditorQuestion(idx);
+    });
+  });
+}
+
+function getDefaultOptions(answerType) {
+  if (answerType === 'tea_tep_ted') return ['TEA', 'TEP', 'TED'];
+  if (answerType === 'frequency_4') return [1, 2, 3, 4];
+  if (answerType === 'achievement_3') return [1, 2, 3];
+  return null;
+}
+
+function getDefaultLabels(answerType) {
+  if (answerType === 'tea_tep_ted') return ['TEA - Trayectoria Educativa Alcanzada', 'TEP - Trayectoria Educativa en Proceso', 'TED - Trayectoria Educativa Discontinua'];
+  if (answerType === 'frequency_4') return ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE'];
+  if (answerType === 'achievement_3') return ['1 - No Logrado', '2 - En Proceso', '3 - Logrado'];
+  return null;
+}
+
+function addEditorQuestion() {
+  editorQuestions.push({
+    section: 'pedagogical',
+    title: 'Nueva pregunta',
+    text: 'Texto de la nueva pregunta',
+    answer_type: 'frequency_4',
+    options: [1, 2, 3, 4],
+    labels: ['1 - NUNCA', '2 - RARA VEZ', '3 - EN OCASIONES', '4 - SIEMPRE']
+  });
+  renderEditorQuestions();
+}
+
+function removeEditorQuestion(index) {
+  editorQuestions.splice(index, 1);
+  renderEditorQuestions();
+}
+
+function moveEditorQuestion(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= editorQuestions.length) return;
+  const temp = editorQuestions[index];
+  editorQuestions[index] = editorQuestions[newIndex];
+  editorQuestions[newIndex] = temp;
+  renderEditorQuestions();
+}
+
+async function loadQuestionnaireVersions(id) {
+  try {
+    const data = await apiGet(`/questionnaires/${id}/versions`);
+    const container = $('qe-versions-list');
+    if (!data.versions || data.versions.length === 0) {
+      container.innerHTML = '<p class="hint">Sin versiones guardadas.</p>';
+      return;
+    }
+    container.innerHTML = data.versions.map((v, i) => `
+      <div class="version-item">
+        <span>Version ${v.version} — ${new Date(v.saved_at).toLocaleString()}</span>
+        <button class="btn-ghost btn-sm" data-version="${v.version}">Restaurar</button>
+      </div>
+    `).join('');
+    container.querySelectorAll('[data-version]').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const version = e.currentTarget.dataset.version;
+        if (!confirm(`Restaurar version ${version}? Se perderan los cambios no guardados.`)) return;
+        try {
+          await apiPost(`/questionnaires/${id}/restore/${version}`, {});
+          openQuestionnaireEditor(id);
+        } catch (err) {
+          alert('Error restaurando version: ' + err.message);
+        }
+      });
+    });
+  } catch (err) {
+    console.error('Error cargando versiones:', err);
+  }
+}
+
+async function duplicateQuestionnaire(id) {
+  setLoading(true);
+  try {
+    const data = await apiGet(`/questionnaires/${id}`);
+    const newName = data.name + ' (copia)';
+    await apiPost(`/questionnaires/${id}/duplicate`, { new_name: newName });
+    loadQuestionnairesList();
+  } catch (err) {
+    alert('Error duplicando cuestionario: ' + err.message);
+  } finally {
+    setLoading(false);
+  }
+}
+
+async function deleteQuestionnaire(id) {
+  if (!confirm('Eliminar este cuestionario? No se pueden recuperar.')) return;
+  setLoading(true);
+  try {
+    await fetch(`/api/questionnaires/${id}`, { method: 'DELETE' });
+    loadQuestionnairesList();
+  } catch (err) {
+    alert('Error eliminando cuestionario: ' + err.message);
   } finally {
     setLoading(false);
   }
