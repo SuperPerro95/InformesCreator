@@ -481,7 +481,11 @@ async function handleHashChange() {
 
   // Onboarding
   if (hash === '#/onboarding') {
-    if (!$('onboarding-overlay').classList.contains('hidden')) return;
+    if (!$('onboarding-overlay').classList.contains('hidden')) {
+      // Ya visible — solo refrescar estado
+      await runOnboarding();
+      return;
+    }
     hide($('hero-screen'));
     hide($('courses-menu'));
     hide($('course-view'));
@@ -492,6 +496,7 @@ async function handleHashChange() {
     show($('onboarding-overlay'));
     updateHelpButton('onboarding');
     currentHelpScreen = 'onboarding';
+    await runOnboarding();
     return;
   }
 
