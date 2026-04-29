@@ -1163,20 +1163,20 @@ async function renderDashboard() {
         <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="redo" data-index="${i}" title="Rehacer"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
         <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
       `;
-      questionnaireBtn = `<button class="btn-secondary btn-sm" onclick="event.stopPropagation();triggerStudentAction(${i},'redo')"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Rehacer cuestionario</button>`;
+      questionnaireBtn = `<button class="btn-secondary btn-sm icon-btn" onclick="event.stopPropagation();triggerStudentAction(${i},'redo')" title="Rehacer"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>`;
     } else if (isIncompleto) {
       actionButtons = `
         <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="continue" data-index="${i}" title="Continuar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>
         <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="generate" data-index="${i}" title="Generar informe"><i data-lucide="file-plus" style="width:14px;height:14px;"></i></button>
         <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
       `;
-      questionnaireBtn = `<button class="btn-primary btn-sm" onclick="event.stopPropagation();triggerStudentAction(${i},'continue')"><i data-lucide="play" style="width:14px;height:14px;"></i> Continuar cuestionario</button>`;
+      questionnaireBtn = `<button class="btn-warning btn-sm icon-btn" onclick="event.stopPropagation();triggerStudentAction(${i},'continue')" title="Continuar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>`;
     } else {
       actionButtons = `
         <button class="btn-primary btn-sm student-action-btn" data-action="complete" data-index="${i}"><i data-lucide="play" style="width:14px;height:14px;"></i> Comenzar cuestionario</button>
         <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="quick" data-index="${i}" title="Generar rapido"><i data-lucide="zap" style="width:14px;height:14px;"></i></button>
       `;
-      questionnaireBtn = `<button class="btn-primary btn-sm" onclick="event.stopPropagation();triggerStudentAction(${i},'complete')"><i data-lucide="play" style="width:14px;height:14px;"></i> Comenzar cuestionario</button>`;
+      questionnaireBtn = `<button class="btn-primary btn-sm icon-btn" onclick="event.stopPropagation();triggerStudentAction(${i},'complete')" title="Comenzar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>`;
     }
 
     return `
@@ -1184,7 +1184,6 @@ async function renderDashboard() {
         <div class="row-header" style="display:flex;align-items:center;gap:var(--space-3);flex:1;">
           <span class="row-num font-mono">${i + 1}</span>
           <span class="row-name">${s.nombre_completo}</span>
-          <span class="row-stats font-mono">P:${s.total_presentes} A:${s.total_ausencias}</span>
           <span class="badge ${badgeClass}">${statusText}</span>
           <select class="student-q-select" onchange="event.stopPropagation();saveStudentQuestionnaire('${s.filename.replace(/'/g, "\\'")}', this.value)" style="font-size:11px;max-width:140px;" onclick="event.stopPropagation()">
             <option value="">Predet.</option>

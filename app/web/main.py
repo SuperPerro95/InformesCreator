@@ -59,7 +59,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="InformesCreator API",
     description="API para generación de informes de avance escolares",
-    version="0.5.0",
+    version="0.5.1",
     lifespan=lifespan,
 )
 

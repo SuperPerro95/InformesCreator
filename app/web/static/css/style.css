@@ -471,6 +471,29 @@ header p {
 
 .btn-danger:hover {
   opacity: 0.9;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  color: #ffffff;
+  border: 2px solid #d97706;
+  border-radius: var(--radius-md);
+  font-weight: 500;
+  padding: var(--space-2) var(--space-3);
+}
+
+.btn-warning:hover {
+  background: #d97706;
+}
+
+.row-header button.btn-primary.btn-sm,
+.row-header button.btn-secondary.btn-sm,
+.row-header button.btn-warning.btn-sm,
+.row-header button.btn-danger.btn-sm,
+.row-header button.icon-btn {
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+}
   transform: scale(1.02);
 }
 
@@ -803,11 +826,6 @@ input[type="checkbox"] {
   gap: var(--space-3);
   width: auto;
   align-self: flex-start;
-}
-
-.row-header button {
-  margin-top: 0;
-  margin-bottom: 0;
 }
 
 .student-details {
