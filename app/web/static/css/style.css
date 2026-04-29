@@ -3095,7 +3095,8 @@ header {
   align-items: center;
 }
 
-.lp-btn-primary {
+.lp-btn-primary,
+button.lp-btn-primary {
   background: #2563eb;
   color: white;
   padding: 12px 28px;
@@ -3103,15 +3104,19 @@ header {
   text-decoration: none;
   font-weight: 600;
   font-size: 15px;
+  border: none;
+  cursor: pointer;
   transition: background 0.2s;
 }
 
-.lp-btn-primary:hover {
+.lp-btn-primary:hover,
+button.lp-btn-primary:hover {
   background: #1d4ed8;
   color: white;
 }
 
-.lp-btn-secondary {
+.lp-btn-secondary,
+button.lp-btn-secondary {
   border: 2px solid #cbd5f5;
   padding: 12px 28px;
   border-radius: 10px;
@@ -3119,10 +3124,13 @@ header {
   color: #334155;
   font-weight: 600;
   font-size: 15px;
+  background: transparent;
+  cursor: pointer;
   transition: background 0.2s, border-color 0.2s;
 }
 
-.lp-btn-secondary:hover {
+.lp-btn-secondary:hover,
+button.lp-btn-secondary:hover {
   background: #f8fafc;
   border-color: #94a3b8;
 }

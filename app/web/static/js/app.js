@@ -2458,19 +2458,14 @@ document.addEventListener('DOMContentLoaded', () => {
     preloadSystemStatus();
   }
 
-  // Hero — "Inicia sesion"
-  if ($('btn-hero-login')) {
-    $('btn-hero-login').addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateTo('#/login');
-    });
-  }
-
-  // Hero — "Registrate"
-  if ($('btn-hero-register')) {
-    $('btn-hero-register').addEventListener('click', (e) => {
-      e.preventDefault();
-      navigateTo('#/register');
+  // Hero — "Comenzar"
+  if ($('btn-hero-start')) {
+    $('btn-hero-start').addEventListener('click', () => {
+      if (authState.loggedIn) {
+        navigateTo('#/onboarding');
+      } else {
+        navigateTo('#/login');
+      }
     });
   }
 
