@@ -2459,7 +2459,8 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Hero CTA — "Probar gratis" buttons
-  const startOnboardingFromHero = async () => {
+  const startOnboardingFromHero = async (e) => {
+    e.preventDefault();
     hideHero();
     show(document.querySelector('header'));
     show($('onboarding-overlay'));
@@ -2468,7 +2469,7 @@ document.addEventListener('DOMContentLoaded', () => {
     navigateTo('#/onboarding');
     await runOnboarding();
   };
-  $('btn-hero-cta').addEventListener('click', startOnboardingFromHero);
+  if ($('btn-hero-cta')) $('btn-hero-cta').addEventListener('click', startOnboardingFromHero);
   if ($('btn-hero-cta2')) $('btn-hero-cta2').addEventListener('click', startOnboardingFromHero);
 
   // Hero — "Iniciar sesion"
