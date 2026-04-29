@@ -3051,17 +3051,14 @@ header {
 }
 
 /* ===================== Landing Page ===================== */
-.landing-page {
+#hero-screen.landing-page {
   font-family: 'Sora', sans-serif;
   background: #ffffff;
   color: #0f172a;
-  margin: 0;
-  padding: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 100vh;
   text-align: center;
 }
 
@@ -3069,37 +3066,20 @@ header {
   box-sizing: border-box;
 }
 
-/* Header */
+/* Header — logo image already contains "Informes Creator" */
 .lp-header {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 
 .lp-logo-big {
-  width: 80px;
+  width: 220px;
+  max-width: 80vw;
   height: auto;
-  margin-bottom: 8px;
-}
-
-.lp-header h1 {
-  font-size: 28px;
-  font-weight: 700;
-  margin: 0;
-  color: #0f172a;
-}
-
-.lp-header h1 strong {
-  color: #2563eb;
-}
-
-.lp-tagline {
-  color: #64748b;
-  font-size: 15px;
-  margin: 8px 0 0;
 }
 
 /* Illustration */
 .lp-hero-center {
-  margin-bottom: 32px;
+  margin-bottom: 28px;
 }
 
 .lp-hero-illustration {
@@ -3165,10 +3145,6 @@ header {
   }
 
   .lp-logo-big {
-    width: 60px;
-  }
-
-  .lp-header h1 {
-    font-size: 22px;
+    width: 160px;
   }
 }
