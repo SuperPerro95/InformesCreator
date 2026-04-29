@@ -2458,21 +2458,7 @@ document.addEventListener('DOMContentLoaded', () => {
     preloadSystemStatus();
   }
 
-  // Hero CTA — "Probar gratis" buttons
-  const startOnboardingFromHero = async (e) => {
-    e.preventDefault();
-    hideHero();
-    show(document.querySelector('header'));
-    show($('onboarding-overlay'));
-    updateHelpButton('onboarding');
-    currentHelpScreen = 'onboarding';
-    navigateTo('#/onboarding');
-    await runOnboarding();
-  };
-  if ($('btn-hero-cta')) $('btn-hero-cta').addEventListener('click', startOnboardingFromHero);
-  if ($('btn-hero-cta2')) $('btn-hero-cta2').addEventListener('click', startOnboardingFromHero);
-
-  // Hero — "Iniciar sesion"
+  // Hero — "Inicia sesion"
   if ($('btn-hero-login')) {
     $('btn-hero-login').addEventListener('click', (e) => {
       e.preventDefault();
@@ -2480,13 +2466,11 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Hero — "Ver como funciona"
-  if ($('btn-hero-how')) {
-    $('btn-hero-how').addEventListener('click', (e) => {
+  // Hero — "Registrate"
+  if ($('btn-hero-register')) {
+    $('btn-hero-register').addEventListener('click', (e) => {
       e.preventDefault();
-      // Scroll to features or show help modal
-      const features = document.querySelector('.lp-hero-features');
-      if (features) features.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      navigateTo('#/register');
     });
   }
 
