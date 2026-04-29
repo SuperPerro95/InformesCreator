@@ -805,6 +805,11 @@ input[type="checkbox"] {
   align-self: flex-start;
 }
 
+.row-header button {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 .student-details {
   opacity: 0;
   max-height: 0;
@@ -869,14 +874,16 @@ input[type="checkbox"] {
 
 .student-q-select {
   font-size: 0.6875rem;
-  padding: 2px 4px;
+  padding: 4px 6px;
   border: 1px solid var(--border-default);
   border-radius: var(--radius-sm);
   background: var(--bg-primary);
   color: var(--text-secondary);
   max-width: 130px;
   cursor: pointer;
-  height: 22px;
+  height: auto;
+  min-height: 28px;
+  line-height: 1.2;
 }
 
 /* Markdown toolbar */
