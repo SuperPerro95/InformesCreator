@@ -2,7 +2,7 @@ import json
 import re
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from paths import user_data_path
 from student_parser import Student, calculate_attendance_from_observations, parse_student_file
@@ -63,13 +63,39 @@ def get_course_session(course_name: str) -> dict:
                 "contenidos": data.get("contenidos", ""),
                 "respuestas": data.get("respuestas", {}),
                 "progreso": data.get("progreso", {"completados": []}),
+                "student_questionnaires": data.get("student_questionnaires", {}),
             }
     return {
         "curso": course_name,
         "contenidos": "",
         "respuestas": {},
         "progreso": {"completados": []},
+        "student_questionnaires": {},
     }
+
+
+def get_student_questionnaire(course_name: str, filename: str) -> Optional[str]:
+    """Devuelve el ID del cuestionario asignado a un alumno especifico, o None."""
+    session = get_course_session(course_name)
+    return session.get("student_questionnaires", {}).get(filename)
+
+
+def set_student_questionnaire(course_name: str, filename: str, qid: str) -> None:
+    """Asigna un cuestionario a un alumno especifico."""
+    slug = _slugify(course_name)
+    filepath = user_data_path(f"curso_{slug}.json")
+    existing = {}
+    if filepath.exists():
+        with open(filepath, "r", encoding="utf-8") as f:
+            existing = json.load(f)
+    sq = existing.get("student_questionnaires", {})
+    if qid:
+        sq[filename] = qid
+    else:
+        sq.pop(filename, None)
+    existing["student_questionnaires"] = sq
+    with open(filepath, "w", encoding="utf-8") as f:
+        json.dump(existing, f, indent=4, ensure_ascii=False)
 
 
 def save_course_session(course_name: str, session_data: dict) -> None:

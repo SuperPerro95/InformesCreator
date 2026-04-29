@@ -6,8 +6,8 @@
     <title>InformesCreator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=2">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css?v=3">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
       tailwind.config = {
@@ -67,18 +67,41 @@
         </div>
 
         <!-- ====== Hero Screen ====== -->
-        <div id="hero-screen" class="hero-screen">
-            <div class="hero-content">
-                <div class="hero-icon-wrap">
-                    <i data-lucide="graduation-cap" class="hero-icon"></i>
+        <div id="hero-screen" class="hero-screen landing-page">
+            <nav class="lp-nav">
+                <div class="lp-logo">
+                    <img src="/icono.png" alt="logo" style="width:36px;"/>
+                    <span>Informes <strong>Creator</strong></span>
                 </div>
-                <h1 class="hero-title">InformesCreator</h1>
-                <p class="hero-subtitle">Generador de Informes de Avance</p>
-                <button id="btn-hero-cta" class="hero-cta">
-                    Comenzar
-                    <i data-lucide="arrow-right" style="width:20px;height:20px;"></i>
-                </button>
-                <p class="hero-tagline">Una herramienta para docentes que genera informes de avance con IA.</p>
+                <div class="lp-nav-links">
+                    <a href="#">Como funciona</a>
+                    <a href="#">Caracteristicas</a>
+                    <a href="#">Precios</a>
+                    <a href="#">Recursos</a>
+                </div>
+                <div class="lp-nav-actions">
+                    <a href="#" class="lp-login" id="btn-hero-login">Iniciar sesion</a>
+                    <a href="#" class="lp-btn-primary" id="btn-hero-cta">Probar gratis</a>
+                </div>
+            </nav>
+            <div class="lp-hero-content">
+                <div class="lp-hero-text">
+                    <div class="lp-badge">✨ Con inteligencia artificial</div>
+                    <h1>Creá informes escolares en <span>minutos</span>, no horas</h1>
+                    <p>Generá informes personalizados con IA en segundos. Mas tiempo para lo que realmente importa: tus alumnos.</p>
+                    <div class="lp-hero-actions">
+                        <a href="#" class="lp-btn-primary" id="btn-hero-cta2">Probar gratis</a>
+                        <a href="#" class="lp-btn-secondary" id="btn-hero-how">Ver como funciona</a>
+                    </div>
+                    <div class="lp-hero-features">
+                        <div>⏱ Ahorra horas</div>
+                        <div>✨ IA educativa</div>
+                        <div>🔒 Seguro</div>
+                    </div>
+                </div>
+                <div class="lp-hero-image">
+                    <img src="/ilustracion.png" alt="Ilustracion"/>
+                </div>
             </div>
         </div>
 
@@ -134,25 +157,46 @@
         <header class="hidden">
             <div class="header-left">
                 <h1>InformesCreator</h1>
-                <div class="header-indicators">
-                    <span id="indicator-ollama" class="indicator indicator-pending">
-                        <i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama
-                    </span>
-                    <span id="indicator-folder" class="indicator indicator-pending">
-                        <i data-lucide="folder" style="width:14px;height:14px;"></i> <span id="indicator-folder-path">Sin ruta</span>
-                    </span>
-                </div>
             </div>
             <div class="header-right">
-                <button id="btn-profile" class="btn-ghost btn-sm" title="Perfil" style="margin-right: 8px;">
-                    <i data-lucide="user" style="width:16px;height:16px;"></i> <span id="header-username"></span>
-                </button>
-                <button id="btn-cuestionarios" class="btn-ghost btn-sm" title="Cuestionarios" style="margin-right: 8px;">
-                    <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
-                </button>
-                <button id="btn-mis-cursos" class="btn-primary btn-sm">
-                    <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
-                </button>
+                <!-- Menú de usuario con estado integrado -->
+                <div class="header-user-menu">
+                    <button id="btn-user-menu" class="header-user-btn status-pending">
+                        <i data-lucide="user" style="width:16px;height:16px;"></i>
+                        <span id="header-username">Docente</span>
+                        <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                    </button>
+                    <div id="user-dropdown" class="user-dropdown hidden">
+                        <!-- Estado del sistema -->
+                        <div id="dropdown-status-section" class="dropdown-status-section">
+                            <div class="dropdown-status-header">
+                                <span id="dropdown-status-dot" class="dropdown-status-dot"></span>
+                                <span id="dropdown-status-text">Verificando...</span>
+                            </div>
+                            <div class="dropdown-path-box">
+                                <span id="dropdown-path-alias" class="dropdown-path-alias">Sin ruta</span>
+                                <span id="dropdown-change-path" class="dropdown-change-path">Cambiar</span>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="#/courses" id="dropdown-courses" class="dropdown-item">
+                            <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
+                        </a>
+                        <a href="#/questionnaires" id="dropdown-questionnaires" class="dropdown-item">
+                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
+                        </a>
+                        <a href="#" id="dropdown-profile" class="dropdown-item">
+                            <i data-lucide="settings" style="width:16px;height:16px;"></i> Configuración
+                        </a>
+                        <a href="#" id="dropdown-help" class="dropdown-item">
+                            <i data-lucide="help-circle" style="width:16px;height:16px;"></i> Ayuda
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" id="dropdown-logout" class="dropdown-item dropdown-danger">
+                            <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesión
+                        </a>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -360,8 +404,8 @@
 
                 <div class="wizard-footer">
                     <button id="prev-question-btn" class="icon-btn" title="Pregunta anterior"><i data-lucide="arrow-left"></i></button>
-                    <button id="btn-save-questionnaire" class="icon-btn" title="Guardar y salir"><i data-lucide="save"></i></button>
-                    <button id="btn-skip-all-questions" class="btn-danger btn-sm">Generar solo con observaciones</button>
+                    <button id="btn-save-questionnaire" class="btn-secondary btn-sm" title="Guardar y salir"><i data-lucide="save" style="width:16px;height:16px;"></i> Guardar progreso</button>
+                    <button id="btn-skip-all-questions" class="btn-secondary btn-sm">Generar solo con observaciones</button>
                 </div>
 
                 <!-- Nota: El panel de asistencia fue movido al panel de observaciones -->
@@ -441,10 +485,6 @@
         </div>
     </div>
 
-    <!-- ====== Botón de Ayuda ====== -->
-    <button id="btn-help" class="help-btn hidden" title="Ayuda">
-        <i data-lucide="help-circle" style="width:24px;height:24px;"></i>
-    </button>
 
     <!-- ====== Panel de Ayuda ====== -->
     <div id="help-modal" class="help-modal hidden">
@@ -486,6 +526,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=2"></script>
+    <script src="/js/app.js?v=3"></script>
 </body>
 </html>

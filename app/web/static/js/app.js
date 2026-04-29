@@ -270,11 +270,22 @@
 })();
 
 // ===================== Icon Helper =====================
+const _ICON_SVGS = {
+  'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
+  'circle': '<circle cx="12" cy="12" r="10"/>',
+  'alert-triangle': '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
+  'minus': '<path d="M5 12h14"/>',
+  'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
+  'check': '<path d="M20 6 9 17l-5-5"/>',
+  'alert-circle': '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
+  'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+};
+
 function icon(name, size = 16) {
-  if (window.lucide && lucide.icons && lucide.icons[name]) {
-    return lucide.icons[name].toSvg({ size, strokeWidth: 2 });
-  }
-  return '';
+  const body = _ICON_SVGS[name];
+  if (!body) return '';
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 }
 
 // ===================== DOM Helpers =====================
@@ -285,6 +296,31 @@ function hide(el) { el.classList.add('hidden'); }
 function setLoading(isLoading) {
   const loader = $('loading');
   if (isLoading) show(loader); else hide(loader);
+}
+
+// ===================== Header Dropdown & Status Popover =====================
+function toggleUserDropdown() {
+  const dd = $('user-dropdown');
+  if (dd.classList.contains('hidden')) {
+    show(dd);
+    document.addEventListener('click', closeUserDropdownOutside);
+  } else {
+    hide(dd);
+    document.removeEventListener('click', closeUserDropdownOutside);
+  }
+}
+
+function closeUserDropdownOutside(e) {
+  const menu = $('header-user-menu');
+  if (menu && !menu.contains(e.target)) {
+    hide($('user-dropdown'));
+    document.removeEventListener('click', closeUserDropdownOutside);
+  }
+}
+
+function closeUserDropdownOnItemClick() {
+  hide($('user-dropdown'));
+  document.removeEventListener('click', closeUserDropdownOutside);
 }
 
 // ===================== Help System =====================
@@ -358,12 +394,7 @@ function hideHelp() {
 }
 
 function updateHelpButton(screen) {
-  const btn = $('btn-help');
-  if (!screen || screen === 'hero') {
-    hide(btn);
-  } else {
-    show(btn);
-  }
+  // Help now lives inside user dropdown; no-op
 }
 
 // ===================== State =====================
@@ -390,6 +421,7 @@ let currentQuestionIndex = 0;
 let currentQuestionnaire = null;
 let currentQuestions = null;
 let totalQuestions = 0;
+let cachedQuestionnaires = null;
 
 // Auth state
 let authState = { loggedIn: false, username: '' };
@@ -501,7 +533,7 @@ function handleHashChange() {
     show($('course-view'));
     selectedCourse = course;
     $('course-view-title').textContent = course;
-    renderDashboard();
+    await renderDashboard();
     updateHelpButton('dashboard');
     currentHelpScreen = 'dashboard';
     return;
@@ -549,7 +581,7 @@ function handleHashChange() {
   }
 
   // Questionnaire editor
-  const qeMatch = hash.match(/#\/questionnaires\/(new|edit)\/(.+)/);
+  const qeMatch = hash.match(/#\/questionnaires\/(new|edit)\/?(.*)/);
   if (qeMatch) {
     const mode = qeMatch[1];
     const id = mode === 'edit' ? qeMatch[2] : null;
@@ -744,7 +776,7 @@ async function apiPost(path, body) {
 }
 
 // ===================== Hero Screen =====================
-let systemStatus = { ollamaRunning: false, basePath: '' };
+let systemStatus = { ollamaRunning: false, ollamaError: null, basePath: '', folderPath: '', folderOk: false };
 
 function showHero() {
   const hero = $('hero-screen');
@@ -789,18 +821,15 @@ async function preloadSystemStatus() {
   try {
     const data = await apiGet('/ollama/status');
     systemStatus.ollamaRunning = data.running;
-    const indicator = $('indicator-ollama');
     if (data.running) {
-      indicator.className = 'indicator indicator-ok';
-      indicator.innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama activo`;
+      systemStatus.ollamaError = null;
     } else {
-      indicator.className = 'indicator indicator-error';
-      indicator.innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama ${data.installed ? 'detenido' : 'no instalado'}`;
+      systemStatus.ollamaError = data.installed ? 'Ollama detenido' : 'Ollama no instalado';
     }
   } catch (err) {
-    $('indicator-ollama').className = 'indicator indicator-error';
-    $('indicator-ollama').innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Error`;
+    systemStatus.ollamaError = 'Error al verificar Ollama';
   }
+  updateStatusDot();
   if (window.lucide) lucide.createIcons();
 }
 
@@ -819,7 +848,7 @@ async function runOnboarding() {
   await checkOllamaStatus();
 
   // Si Ollama OK y carpeta configurada, habilitar boton
-  const ollamaOk = !$('indicator-ollama').classList.contains('indicator-error');
+  const ollamaOk = systemStatus.ollamaRunning;
   const folderOk = $('base-path').value.trim().length > 0;
   $('btn-start').disabled = !(ollamaOk && folderOk);
 }
@@ -827,50 +856,85 @@ async function runOnboarding() {
 async function checkOllamaStatus() {
   try {
     const data = await apiGet('/ollama/status');
-    const indicator = $('indicator-ollama');
     const statusBox = $('onboarding-ollama-status');
     const setupDiv = $('onboarding-ollama-setup');
 
     if (data.running) {
-      indicator.className = 'indicator indicator-ok';
-      indicator.innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama activo`;
+      systemStatus.ollamaRunning = true;
+      systemStatus.ollamaError = null;
       statusBox.className = 'status-box ok';
       statusBox.innerHTML = `<p><strong>Ollama esta activo.</strong> Modelos disponibles: ${data.models.length}</p>`;
       hide(setupDiv);
     } else if (data.installed) {
-      indicator.className = 'indicator indicator-error';
-      indicator.innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama detenido`;
+      systemStatus.ollamaRunning = false;
+      systemStatus.ollamaError = 'Ollama detenido';
       statusBox.className = 'status-box error';
       statusBox.innerHTML = `<p><strong>Ollama esta instalado pero no esta corriendo.</strong></p>`;
       show(setupDiv);
       setupDiv.innerHTML = `<div class="setup-instructions"><h4>Como iniciar Ollama</h4><p>Abri una terminal y ejecuta:</p><code>ollama serve</code><p class="hint">Dejala corriendo en segundo plano.</p></div>`;
     } else {
-      indicator.className = 'indicator indicator-error';
-      indicator.innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Ollama no instalado`;
+      systemStatus.ollamaRunning = false;
+      systemStatus.ollamaError = 'Ollama no instalado';
       statusBox.className = 'status-box error';
       statusBox.innerHTML = `<p><strong>Ollama no esta instalado.</strong></p>`;
       show(setupDiv);
       setupDiv.innerHTML = `<div class="setup-instructions"><h4>Como instalar Ollama</h4><p><strong>Windows (PowerShell admin):</strong></p><code>irm https://ollama.com/install.ps1 | iex</code><p><strong>macOS / Linux:</strong></p><code>curl -fsSL https://ollama.com/install.sh | sh</code><p>Mas info en <a href="https://ollama.com" target="_blank">ollama.com</a></p></div>`;
     }
   } catch (err) {
-    $('indicator-ollama').className = 'indicator indicator-error';
-    $('indicator-ollama').innerHTML = `<i data-lucide="bot" style="width:14px;height:14px;"></i> Error`;
+    systemStatus.ollamaRunning = false;
+    systemStatus.ollamaError = 'Error al verificar Ollama';
     $('onboarding-ollama-status').innerHTML = `<p>Error al verificar Ollama: ${err.message}</p>`;
   }
+  updateStatusDot();
   if (window.lucide) lucide.createIcons();
 }
 
 function updateFolderIndicator(path) {
-  const el = $('indicator-folder');
-  const pathEl = $('indicator-folder-path');
-  if (path && path.trim()) {
-    el.className = 'indicator indicator-ok';
-    pathEl.textContent = path;
-    pathEl.title = path;
+  systemStatus.folderPath = path || '';
+  systemStatus.folderOk = !!(path && path.trim());
+  updateStatusDot();
+}
+
+function updateStatusDot() {
+  const btn = $('btn-user-menu');
+  const ddDot = $('dropdown-status-dot');
+  const ddText = $('dropdown-status-text');
+  const ddAlias = $('dropdown-path-alias');
+  if (!btn) return;
+
+  const ollamaOk = systemStatus.ollamaRunning;
+  const folderOk = systemStatus.folderOk;
+
+  let statusLabel, btnClass;
+  if (ollamaOk && folderOk) {
+    btnClass = 'status-ok';
+    statusLabel = 'Ollama activo';
+  } else if (!ollamaOk && !folderOk) {
+    btnClass = 'status-error';
+    statusLabel = 'Problemas detectados';
+  } else if (!ollamaOk) {
+    btnClass = 'status-error';
+    statusLabel = systemStatus.ollamaError || 'Ollama desconectado';
   } else {
-    el.className = 'indicator indicator-pending';
-    pathEl.textContent = 'Sin ruta';
-    pathEl.title = '';
+    btnClass = 'status-pending';
+    statusLabel = 'Carpeta no configurada';
+  }
+
+  btn.classList.remove('status-ok', 'status-pending', 'status-error');
+  btn.classList.add(btnClass);
+
+  // Update dropdown status section
+  if (ddDot) ddDot.className = `dropdown-status-dot ${btnClass.replace('status-', '')}`;
+  if (ddText) ddText.textContent = statusLabel;
+  if (ddAlias) {
+    if (systemStatus.folderPath) {
+      const alias = systemStatus.folderPath.split(/[\\\\/]/).filter(Boolean).pop() || systemStatus.folderPath;
+      ddAlias.textContent = alias;
+      ddAlias.title = systemStatus.folderPath;
+    } else {
+      ddAlias.textContent = 'Sin ruta';
+      ddAlias.title = '';
+    }
   }
 }
 
@@ -1023,7 +1087,7 @@ async function openCourse(course) {
     hide($('wizard'));
 
     $('course-view-title').textContent = course;
-    renderDashboard();
+    await renderDashboard();
     updateHelpButton('dashboard');
     currentHelpScreen = 'dashboard';
     navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
@@ -1045,8 +1109,18 @@ function openCoursesMenu() {
 }
 
 // ===================== Dashboard =====================
-function renderDashboard() {
+async function renderDashboard() {
+  // Cargar lista de cuestionarios si no esta en cache
+  if (!cachedQuestionnaires) {
+    try {
+      cachedQuestionnaires = await apiGet('/questionnaires');
+    } catch (err) {
+      cachedQuestionnaires = [];
+    }
+  }
+
   const session = courseSessions[selectedCourse] || {};
+  const studentQs = session.student_questionnaires || {};
   const backendCompletados = new Set(session.progreso?.completados || []);
   sessionReports.forEach(r => {
     if (r.completed) backendCompletados.add(r.filename);
@@ -1074,8 +1148,9 @@ function renderDashboard() {
 
     const badgeClass = isCompleted ? 'badge-success' : (isIncompleto ? 'badge-warning' : 'badge-subtle');
     const statusText = isCompleted ? 'Informe listo' : (isIncompleto ? 'Cuestionario guardado' : 'Sin empezar');
+    const studentQid = studentQs[s.filename] || '';
 
-    let actionButtons;
+    let actionButtons, questionnaireBtn;
     if (isCompleted) {
       actionButtons = `
         <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="download" data-index="${i}" title="Descargar"><i data-lucide="download" style="width:14px;height:14px;"></i></button>
@@ -1083,124 +1158,290 @@ function renderDashboard() {
         <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="redo" data-index="${i}" title="Rehacer"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i></button>
         <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
       `;
+      questionnaireBtn = `<button class="btn-secondary btn-sm" onclick="event.stopPropagation();triggerStudentAction(${i},'redo')"><i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Rehacer cuestionario</button>`;
     } else if (isIncompleto) {
       actionButtons = `
         <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="continue" data-index="${i}" title="Continuar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>
         <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="generate" data-index="${i}" title="Generar informe"><i data-lucide="file-plus" style="width:14px;height:14px;"></i></button>
         <button class="btn-danger btn-sm student-action-btn icon-btn" data-action="clear" data-index="${i}" title="Borrar"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
       `;
+      questionnaireBtn = `<button class="btn-primary btn-sm" onclick="event.stopPropagation();triggerStudentAction(${i},'continue')"><i data-lucide="play" style="width:14px;height:14px;"></i> Continuar cuestionario</button>`;
     } else {
       actionButtons = `
-        <button class="btn-primary btn-sm student-action-btn icon-btn" data-action="complete" data-index="${i}" title="Comenzar"><i data-lucide="play" style="width:14px;height:14px;"></i></button>
+        <button class="btn-primary btn-sm student-action-btn" data-action="complete" data-index="${i}"><i data-lucide="play" style="width:14px;height:14px;"></i> Comenzar cuestionario</button>
         <button class="btn-secondary btn-sm student-action-btn icon-btn" data-action="quick" data-index="${i}" title="Generar rapido"><i data-lucide="zap" style="width:14px;height:14px;"></i></button>
       `;
+      questionnaireBtn = `<button class="btn-primary btn-sm" onclick="event.stopPropagation();triggerStudentAction(${i},'complete')"><i data-lucide="play" style="width:14px;height:14px;"></i> Comenzar cuestionario</button>`;
     }
 
     return `
-      <div class="list-row" data-index="${i}">
-        <span class="row-num font-mono">${i + 1}</span>
-        <span class="row-name">${s.nombre_completo}</span>
-        <span class="row-stats font-mono">P:${s.total_presentes} A:${s.total_ausencias}</span>
-        <span class="badge ${badgeClass}">${statusText}</span>
-        <div class="flex gap-2">${actionButtons}</div>
+      <div class="list-row" data-index="${i}" onclick="toggleStudentDetails(${i})">
+        <div class="row-header" style="display:flex;align-items:center;gap:var(--space-3);flex:1;">
+          <span class="row-num font-mono">${i + 1}</span>
+          <span class="row-name">${s.nombre_completo}</span>
+          <span class="row-stats font-mono">P:${s.total_presentes} A:${s.total_ausencias}</span>
+          <span class="badge ${badgeClass}">${statusText}</span>
+          <select class="student-q-select" onchange="event.stopPropagation();saveStudentQuestionnaire('${s.filename.replace(/'/g, "\\'")}', this.value)" style="font-size:11px;max-width:140px;" onclick="event.stopPropagation()">
+            <option value="">Predet.</option>
+            ${(cachedQuestionnaires || []).map(q => `<option value="${q.id}" ${studentQid === q.id ? 'selected' : ''}>${q.name}</option>`).join('')}
+          </select>
+          ${questionnaireBtn}
+        </div>
+        <div class="student-details" onclick="event.stopPropagation()">
+          <div class="details-grid">
+            <div class="report-editor-container">
+              <div class="editor-header">
+                <span class="label">Informe del alumno:</span>
+                <span id="save-status-${i}" class="save-status"></span>
+              </div>
+              <div class="markdown-toolbar">
+                <button onclick="applyFormat(${i}, 'bold')" title="Negrita"><b>B</b></button>
+                <button onclick="applyFormat(${i}, 'italic')" title="Cursiva"><i>I</i></button>
+                <button onclick="applyFormat(${i}, 'list')" title="Lista">• List</button>
+                <div class="toolbar-divider"></div>
+                <button class="preview-btn" onclick="togglePreview(${i})" id="preview-btn-${i}">Vista Previa</button>
+              </div>
+              <div class="editor-wrapper">
+                <textarea id="textarea-${i}" class="report-textarea" placeholder="Escribe el informe aqui..."
+                  oninput="handleAutoSave(${i})"
+                >${s.report || ''}</textarea>
+                <div id="preview-${i}" class="markdown-preview hidden"></div>
+              </div>
+            </div>
+            <div class="action-sidebar">
+              <button class="action-btn btn-download" onclick="triggerStudentAction(${i}, 'download')">
+                <i data-lucide="download" style="width:14px;height:14px;"></i> Descargar
+              </button>
+              <button class="action-btn btn-modify" onclick="triggerStudentAction(${i}, 'modify')">
+                <i data-lucide="sliders-horizontal" style="width:14px;height:14px;"></i> Modificar
+              </button>
+              <button class="action-btn btn-redo" onclick="triggerStudentAction(${i}, 'redo')">
+                <i data-lucide="refresh-cw" style="width:14px;height:14px;"></i> Rehacer
+              </button>
+              <button class="action-btn btn-danger" onclick="triggerStudentAction(${i}, 'clear')">
+                <i data-lucide="trash-2" style="width:14px;height:14px;"></i> Borrar
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     `;
   }).join('');
 
-  container.querySelectorAll('.student-action-btn').forEach(btn => {
-    btn.addEventListener('click', async (e) => {
-      const action = e.currentTarget.dataset.action;
-      const idx = parseInt(e.currentTarget.dataset.index);
-      const student = allStudents[idx];
-      currentStudentIndex = idx;
-
-      if (action === 'download') {
-        try {
-          const reportFilename = getReportFilename(student.nombre_completo);
-          await downloadExistingReport(selectedCourse, reportFilename);
-        } catch (err) {
-          downloadReportForIndex(idx);
-        }
-      } else if (action === 'redo' || action === 'complete') {
-        sessionReports = sessionReports.filter(r => r.studentIndex !== idx);
-        startWizardForStudent();
-      } else if (action === 'continue') {
-        sessionReports = sessionReports.filter(r => r.studentIndex !== idx);
-        startWizardForStudent(true);
-      } else if (action === 'quick') {
-        sessionReports = sessionReports.filter(r => r.studentIndex !== idx);
-        questionnaireAnswers = {};
-        currentQuestionIndex = 0;
-        if (!$('course-contents').value) await loadContents(selectedCourse);
-        await loadStudentContext();
-        showWizard();
-        goToWizardStep(2);
-        await loadVariants();
-      } else if (action === 'generate') {
-        sessionReports = sessionReports.filter(r => r.studentIndex !== idx);
-        const sess = courseSessions[selectedCourse] || {};
-        const saved = sess.respuestas?.[student.filename];
-        if (saved) {
-          questionnaireAnswers = {};
-          loadAnswersFromSaved(saved);
-        }
-        if (!$('course-contents').value) await loadContents(selectedCourse);
-        showWizard();
-        goToWizardStep(2);
-        await loadVariants();
-      } else if (action === 'modify') {
-        const reportFilename = getReportFilename(student.nombre_completo);
-        let reportContent = null;
-        const cachedReport = sessionReports.find(r => r.studentIndex === idx);
-        if (cachedReport && cachedReport.report_content) {
-          reportContent = cachedReport.report_content;
-          if (cachedReport.variant) selectedVariant = cachedReport.variant;
-        } else {
-          try {
-            const data = await apiGet(`/reports/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(reportFilename)}`);
-            reportContent = data.content;
-            const existingIndex = sessionReports.findIndex(r => r.studentIndex === idx);
-            const reportData = {
-              studentIndex: idx,
-              nombre_completo: student.nombre_completo,
-              filename: student.filename,
-              report_content: reportContent,
-              completed: true,
-              variant: null
-            };
-            if (existingIndex >= 0) {
-              sessionReports[existingIndex] = reportData;
-            } else {
-              sessionReports.push(reportData);
-            }
-          } catch (err) {
-            alert('Error cargando informe: ' + err.message);
-            return;
-          }
-        }
-        currentStudentIndex = idx;
-        await loadStudentContext();
-        $('report-preview').textContent = reportContent;
-        show($('report-actions'));
-        show($('customization-panel'));
-        hide($('btn-next-student'));
-        goToWizardStep(3);
-        showWizard();
-      } else if (action === 'clear') {
-        if (!confirm(`Borrar todas las respuestas de ${student.nombre_completo}?`)) return;
-        try {
-          await apiPost(`/students/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(student.filename)}/clear`, {});
-          const refreshed = await apiGet(`/courses/${encodeURIComponent(selectedCourse)}/session`);
-          courseSessions[selectedCourse] = refreshed;
-          renderDashboard();
-        } catch (err) {
-          alert('Error borrando respuestas: ' + err.message);
-        }
-      }
-    });
-  });
   if (window.lucide) lucide.createIcons();
   renderQuestionnaireSelector();
+}
+
+async function saveStudentQuestionnaire(filename, qid) {
+  try {
+    await apiPost(`/courses/${encodeURIComponent(selectedCourse)}/students/${encodeURIComponent(filename)}/questionnaire`, { questionnaire_id: qid });
+    courseSessions[selectedCourse].student_questionnaires = courseSessions[selectedCourse].student_questionnaires || {};
+    courseSessions[selectedCourse].student_questionnaires[filename] = qid;
+  } catch (err) {
+    console.error('Error guardando cuestionario del alumno:', err);
+  }
+}
+
+// ===================== Student Row Actions =====================
+async function toggleStudentDetails(index) {
+  const row = document.querySelector(`.list-row[data-index="${index}"]`);
+  if (!row) return;
+  const isExpanded = row.classList.contains('expanded');
+  // Close all other expanded rows
+  document.querySelectorAll('.list-row.expanded').forEach(r => {
+    if (r !== row) r.classList.remove('expanded');
+  });
+  row.classList.toggle('expanded', !isExpanded);
+
+  // Load report from backend when expanding
+  if (!isExpanded) {
+    const student = allStudents[index];
+    if (!student) return;
+    const textarea = document.getElementById(`textarea-${index}`);
+    if (!textarea) return;
+    const reportFilename = getReportFilename(student.nombre_completo);
+    try {
+      const data = await apiGet(`/reports/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(reportFilename)}`);
+      if (data.content && !textarea.value.trim()) {
+        textarea.value = data.content;
+      }
+    } catch (err) {
+      // No report yet, ignore
+    }
+  }
+}
+
+let _saveTimeouts = {};
+
+function handleAutoSave(index) {
+  const statusEl = document.getElementById(`save-status-${index}`);
+  const textarea = document.getElementById(`textarea-${index}`);
+  if (statusEl) {
+    statusEl.textContent = 'Escribiendo...';
+    statusEl.className = 'save-status';
+  }
+  clearTimeout(_saveTimeouts[index]);
+  _saveTimeouts[index] = setTimeout(() => {
+    if (statusEl) {
+      statusEl.textContent = 'Guardando...';
+      statusEl.className = 'save-status saving';
+    }
+    // Persist to session cache
+    const student = allStudents[index];
+    if (student && textarea) {
+      const existingIndex = sessionReports.findIndex(r => r.studentIndex === index);
+      const reportData = {
+        studentIndex: index,
+        nombre_completo: student.nombre_completo,
+        filename: student.filename,
+        report_content: textarea.value,
+        completed: true
+      };
+      if (existingIndex >= 0) {
+        sessionReports[existingIndex] = { ...sessionReports[existingIndex], ...reportData };
+      } else {
+        sessionReports.push(reportData);
+      }
+    }
+    if (statusEl) {
+      statusEl.textContent = '✓ Guardado';
+      statusEl.className = 'save-status saved';
+    }
+  }, 1500);
+}
+
+function applyFormat(index, type) {
+  const textarea = document.getElementById(`textarea-${index}`);
+  if (!textarea) return;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const text = textarea.value;
+  const selected = text.substring(start, end);
+  let formatted = '';
+  if (type === 'bold') formatted = `**${selected}**`;
+  else if (type === 'italic') formatted = `*${selected}*`;
+  else if (type === 'list') formatted = `\n- ${selected}`;
+
+  textarea.value = text.substring(0, start) + formatted + text.substring(end);
+  textarea.focus();
+  textarea.setSelectionRange(start + formatted.length, start + formatted.length);
+  handleAutoSave(index);
+}
+
+function togglePreview(index) {
+  const textarea = document.getElementById(`textarea-${index}`);
+  const preview = document.getElementById(`preview-${index}`);
+  const btn = document.getElementById(`preview-btn-${index}`);
+  if (!textarea || !preview || !btn) return;
+
+  if (preview.classList.contains('hidden')) {
+    preview.innerHTML = simpleMarkdownToHtml(textarea.value);
+    textarea.classList.add('hidden');
+    preview.classList.remove('hidden');
+    btn.textContent = 'Editar';
+  } else {
+    textarea.classList.remove('hidden');
+    preview.classList.add('hidden');
+    btn.textContent = 'Vista Previa';
+  }
+}
+
+function simpleMarkdownToHtml(text) {
+  if (!text) return '';
+  let html = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+  // Bold
+  html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+  // Italic
+  html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
+  // Headers
+  html = html.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+  html = html.replace(/^## (.*$)/gim, '<h2>$1</h2>');
+  html = html.replace(/^# (.*$)/gim, '<h1>$1</h1>');
+  // Lists
+  html = html.replace(/^\- (.*$)/gim, '<li>$1</li>');
+  html = html.replace(/(<li>.*<\/li>\n?)+/g, '<ul>$1</ul>');
+  // Line breaks
+  html = html.replace(/\n/g, '<br>');
+  return html;
+}
+
+async function triggerStudentAction(index, action) {
+  const student = allStudents[index];
+  currentStudentIndex = index;
+
+  if (action === 'complete') {
+    await startWizardForStudent(false);
+    return;
+  } else if (action === 'continue') {
+    await startWizardForStudent(true);
+    return;
+  } else if (action === 'quick') {
+    if (!confirm(`Generar informe para ${student.nombre_completo} con cuestionario predeterminado?`)) return;
+    sessionReports = sessionReports.filter(r => r.studentIndex !== index);
+    await startWizardForStudent(false);
+    return;
+  } else if (action === 'download') {
+    try {
+      const reportFilename = getReportFilename(student.nombre_completo);
+      await downloadExistingReport(selectedCourse, reportFilename);
+    } catch (err) {
+      downloadReportForIndex(index);
+    }
+  } else if (action === 'redo') {
+    sessionReports = sessionReports.filter(r => r.studentIndex !== index);
+    startWizardForStudent();
+  } else if (action === 'modify') {
+    const reportFilename = getReportFilename(student.nombre_completo);
+    let reportContent = null;
+    const cachedReport = sessionReports.find(r => r.studentIndex === index);
+    if (cachedReport && cachedReport.report_content) {
+      reportContent = cachedReport.report_content;
+      if (cachedReport.variant) selectedVariant = cachedReport.variant;
+    } else {
+      try {
+        const data = await apiGet(`/reports/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(reportFilename)}`);
+        reportContent = data.content;
+        const existingIndex = sessionReports.findIndex(r => r.studentIndex === index);
+        const reportData = {
+          studentIndex: index,
+          nombre_completo: student.nombre_completo,
+          filename: student.filename,
+          report_content: reportContent,
+          completed: true,
+          variant: null
+        };
+        if (existingIndex >= 0) {
+          sessionReports[existingIndex] = reportData;
+        } else {
+          sessionReports.push(reportData);
+        }
+      } catch (err) {
+        alert('Error cargando informe: ' + err.message);
+        return;
+      }
+    }
+    currentStudentIndex = index;
+    await loadStudentContext();
+    $('report-preview').textContent = reportContent;
+    show($('report-actions'));
+    show($('customization-panel'));
+    hide($('btn-next-student'));
+    goToWizardStep(3);
+    showWizard();
+  } else if (action === 'clear') {
+    if (!confirm(`Borrar todas las respuestas de ${student.nombre_completo}?`)) return;
+    try {
+      await apiPost(`/students/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(student.filename)}/clear`, {});
+      const refreshed = await apiGet(`/courses/${encodeURIComponent(selectedCourse)}/session`);
+      courseSessions[selectedCourse] = refreshed;
+      await renderDashboard();
+    } catch (err) {
+      alert('Error borrando respuestas: ' + err.message);
+    }
+  }
 }
 
 async function renderQuestionnaireSelector() {
@@ -1213,7 +1454,7 @@ async function renderQuestionnaireSelector() {
     ]);
     const activeId = activeData.questionnaire_id || '';
     const options = [`<option value="">Predeterminado (19 preguntas)</option>`];
-    for (const q of allData.questionnaires || []) {
+    for (const q of allData || []) {
       const selected = q.id === activeId ? ' selected' : '';
       options.push(`<option value="${q.id}"${selected}>${q.name} (${q.question_count || 0} preguntas)</option>`);
     }
@@ -1276,12 +1517,41 @@ function goToWizardStep(step) {
   const slug = selectedCourse.replace(/\s+/g, '-');
   const extra = step === 2 ? '/config' : (step === 3 ? '/report' : '');
   navigateTo(`#/wizard/${slug}${extra}`);
+
+  // Fade out contenidos toggle en paso 1 del wizard
+  const toggleBtn = $('btn-toggle-contents');
+  if (toggleBtn) {
+    if (step === 1) {
+      toggleBtn.classList.add('fade-out-hidden');
+    } else {
+      toggleBtn.classList.remove('fade-out-hidden');
+    }
+  }
 }
 
-function startWizardForStudent(continuar = false) {
+async function startWizardForStudent(continuar = false) {
   showWizard();
   questionnaireAnswers = {};
   currentQuestionIndex = 0;
+
+  // Cargar cuestionario del alumno si tiene uno asignado
+  const student = allStudents[currentStudentIndex];
+  if (student) {
+    try {
+      const data = await apiGet(`/courses/${encodeURIComponent(selectedCourse)}/students/${encodeURIComponent(student.filename)}/questionnaire`);
+      const qid = data.questionnaire_id;
+      if (qid) {
+        const qData = await apiGet(`/questionnaires/${qid}`);
+        if (qData && qData.questions && qData.questions.length > 0) {
+          currentQuestionnaire = qData;
+          currentQuestions = qData.questions;
+          totalQuestions = qData.questions.length;
+        }
+      }
+    } catch (err) {
+      console.error('Error cargando cuestionario del alumno:', err);
+    }
+  }
 
   if (continuar) {
     continueQuestionnaireForCurrentStudent();
@@ -1604,7 +1874,7 @@ function _getSectionDisplayName(section) {
 function _getOptionIcon(answerType, index) {
   const icons = {
     tea_tep_ted: ['check-circle', 'circle', 'alert-triangle'],
-    frequency_4: ['x', 'minus', 'plus', 'check-check'],
+    frequency_4: ['x', 'minus', 'plus', 'check'],
     achievement_3: ['alert-circle', 'clock', 'check-circle']
   };
   const list = icons[answerType];
@@ -1653,6 +1923,7 @@ function renderQuestion(index) {
     textarea.rows = 4;
     textarea.placeholder = 'Situaciones puntuales...';
     textarea.style.width = '100%';
+    textarea.style.gridColumn = '1 / -1';
     textarea.style.padding = '12px';
     textarea.style.borderRadius = 'var(--radius-md)';
     textarea.style.border = '1px solid var(--border-default)';
@@ -1674,13 +1945,15 @@ function renderQuestion(index) {
       const btn = document.createElement('button');
       btn.className = 'answer-btn';
       const iconName = _getOptionIcon(q.answer_type, i);
-      const iconHtml = iconName ? `<span class="btn-icon">${icon(iconName)}</span>` : '';
+      const iconHtml = iconName ? `<span class="btn-icon">${icon(iconName, 20)}</span>` : '';
       btn.innerHTML = `${iconHtml}<span class="btn-text">${_cleanLabel(q.labels[i])}</span>`;
       if (savedValue === opt || savedValue === q.labels[i]) btn.classList.add('selected');
       btn.addEventListener('click', () => handleAnswer(opt));
       optionsContainer.appendChild(btn);
     });
   }
+
+  if (window.lucide && lucide.createIcons) lucide.createIcons();
 
   $('prev-question-btn').disabled = index === 0;
   if (index === 0) {
@@ -2185,8 +2458,8 @@ document.addEventListener('DOMContentLoaded', () => {
     preloadSystemStatus();
   }
 
-  // Hero CTA
-  $('btn-hero-cta').addEventListener('click', async () => {
+  // Hero CTA — "Probar gratis" buttons
+  const startOnboardingFromHero = async () => {
     hideHero();
     show(document.querySelector('header'));
     show($('onboarding-overlay'));
@@ -2194,7 +2467,27 @@ document.addEventListener('DOMContentLoaded', () => {
     currentHelpScreen = 'onboarding';
     navigateTo('#/onboarding');
     await runOnboarding();
-  });
+  };
+  $('btn-hero-cta').addEventListener('click', startOnboardingFromHero);
+  if ($('btn-hero-cta2')) $('btn-hero-cta2').addEventListener('click', startOnboardingFromHero);
+
+  // Hero — "Iniciar sesion"
+  if ($('btn-hero-login')) {
+    $('btn-hero-login').addEventListener('click', (e) => {
+      e.preventDefault();
+      navigateTo('#/login');
+    });
+  }
+
+  // Hero — "Ver como funciona"
+  if ($('btn-hero-how')) {
+    $('btn-hero-how').addEventListener('click', (e) => {
+      e.preventDefault();
+      // Scroll to features or show help modal
+      const features = document.querySelector('.lp-hero-features');
+      if (features) features.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  }
 
   $('btn-start').addEventListener('click', completeOnboarding);
 
@@ -2209,7 +2502,7 @@ document.addEventListener('DOMContentLoaded', () => {
         show($('new-course-section'));
       }
       // Re-evaluate button
-      const ollamaOk = !$('indicator-ollama').classList.contains('indicator-error');
+      const ollamaOk = systemStatus.ollamaRunning;
       const folderOk = e.target.value === 'existing'
         ? $('base-path').value.trim().length > 0
         : $('new-course-name').value.trim().length > 0 && $('new-students-list').value.trim().length > 0;
@@ -2219,7 +2512,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   $('base-path').addEventListener('input', () => {
     updateFolderIndicator($('base-path').value);
-    const ollamaOk = !$('indicator-ollama').classList.contains('indicator-error');
+    const ollamaOk = systemStatus.ollamaRunning;
     $('btn-start').disabled = !(ollamaOk && $('base-path').value.trim().length > 0);
   });
 
@@ -2245,9 +2538,6 @@ document.addEventListener('DOMContentLoaded', () => {
       alert('Error abriendo selector: ' + err.message);
     }
   });
-
-  // Header navigation
-  $('btn-mis-cursos').addEventListener('click', openCoursesMenu);
 
   // Courses menu
   $('btn-close-courses-menu').addEventListener('click', () => {
@@ -2391,12 +2681,43 @@ document.addEventListener('DOMContentLoaded', () => {
   $('btn-download-all').addEventListener('click', downloadAllReports);
 
   // Help system
-  $('btn-help').addEventListener('click', () => showHelp(currentHelpScreen));
   $('btn-close-help').addEventListener('click', hideHelp);
   $('help-modal').addEventListener('click', (e) => {
     if (e.target === $('help-modal') || e.target.classList.contains('help-overlay')) {
       hideHelp();
     }
+  });
+
+  // Header: user dropdown
+  $('btn-user-menu').addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleUserDropdown();
+  });
+  $('dropdown-courses').addEventListener('click', (e) => {
+    hide($('user-dropdown'));
+  });
+  $('dropdown-questionnaires').addEventListener('click', (e) => {
+    hide($('user-dropdown'));
+  });
+  $('dropdown-profile').addEventListener('click', (e) => {
+    e.preventDefault();
+    hide($('user-dropdown'));
+    openProfileModal();
+  });
+  $('dropdown-help').addEventListener('click', (e) => {
+    e.preventDefault();
+    hide($('user-dropdown'));
+    showHelp(currentHelpScreen);
+  });
+  $('dropdown-logout').addEventListener('click', (e) => {
+    e.preventDefault();
+    hide($('user-dropdown'));
+    doLogout();
+  });
+  $('dropdown-change-path').addEventListener('click', (e) => {
+    e.preventDefault();
+    hide($('user-dropdown'));
+    openProfileModal();
   });
 
   // Router
@@ -2406,7 +2727,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Profile modal
-  $('btn-profile').addEventListener('click', openProfileModal);
   $('btn-close-profile').addEventListener('click', closeProfileModal);
   $('btn-change-folder').addEventListener('click', doChangeFolder);
   $('btn-logout').addEventListener('click', doLogout);
@@ -2424,7 +2744,6 @@ document.addEventListener('DOMContentLoaded', () => {
   $('link-login').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/login'); });
 
   // Questionnaires
-  $('btn-cuestionarios').addEventListener('click', () => navigateTo('#/questionnaires'));
   $('btn-close-questionnaires').addEventListener('click', () => navigateTo('#/courses'));
   $('btn-new-questionnaire').addEventListener('click', () => navigateTo('#/questionnaires/new/'));
   $('btn-save-questionnaire-editor').addEventListener('click', saveQuestionnaireEditor);
@@ -2600,12 +2919,12 @@ async function loadQuestionnairesList() {
   try {
     const data = await apiGet('/questionnaires');
     const container = $('questionnaires-list');
-    if (!data.questionnaires || data.questionnaires.length === 0) {
+    if (!data || data.length === 0) {
       container.innerHTML = '<p class="hint">No hay cuestionarios personalizados.</p>';
       setLoading(false);
       return;
     }
-    container.innerHTML = data.questionnaires.map(q => `
+    container.innerHTML = data.map(q => `
       <div class="questionnaire-card" data-id="${q.id}">
         <div class="questionnaire-card-header">
           <h4>${q.name}</h4>

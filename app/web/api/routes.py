@@ -25,6 +25,8 @@ from course_manager import (
     save_course_contents,
     save_course_session,
     save_student_observations,
+    get_student_questionnaire,
+    set_student_questionnaire,
 )
 from ollama_client import generate_report
 from paths import user_data_path
@@ -317,6 +319,7 @@ def get_session(course: str):
         "progreso": session["progreso"],
         "informes_existentes": reports,
         "questionnaire_id": qid,
+        "student_questionnaires": session.get("student_questionnaires", {}),
     }
 
 
@@ -337,7 +340,9 @@ def get_report_file(course: str, filename: str):
     report_path = config.output_dir / course / filename
     if not report_path.exists():
         raise HTTPException(status_code=404, detail="Informe no encontrado")
-    content = report_path.read_text(encoding="utf-8")
+    raw = report_path.read_text(encoding="utf-8")
+    parts = raw.split("---")
+    content = parts[1].strip() if len(parts) >= 3 else raw
     return {"content": content}
 
 
@@ -403,8 +408,8 @@ def generate_report_endpoint(req: ReportGenerateRequest):
     system_prompt = build_system_prompt(variant, req.customization)
     answers_dict = req.answers.model_dump()
 
-    # Obtener cuestionario asignado al curso
-    qid = get_course_questionnaire(req.course)
+    # Obtener cuestionario: primero por alumno, luego por curso
+    qid = get_student_questionnaire(req.course, req.filename) or get_course_questionnaire(req.course)
     questionnaire = get_questionnaire(qid)
 
     user_prompt = build_user_prompt(
@@ -538,6 +543,22 @@ def clear_student(course: str, filename: str):
     if report_path.exists():
         report_path.unlink()
 
+    return {"ok": True}
+
+
+class SetStudentQuestionnaireRequest(BaseModel):
+    questionnaire_id: str
+
+
+@router.get("/courses/{course}/students/{filename}/questionnaire")
+def get_student_questionnaire_endpoint(course: str, filename: str):
+    qid = get_student_questionnaire(course, filename)
+    return {"questionnaire_id": qid or ""}
+
+
+@router.post("/courses/{course}/students/{filename}/questionnaire")
+def set_student_questionnaire_endpoint(course: str, filename: str, req: SetStudentQuestionnaireRequest):
+    set_student_questionnaire(course, filename, req.questionnaire_id or "")
     return {"ok": True}
 
 
