@@ -437,7 +437,7 @@ function navigateTo(hash) {
   setTimeout(() => { isNavigating = false; }, 0);
 }
 
-function handleHashChange() {
+async function handleHashChange() {
   const hash = window.location.hash || '#/';
 
   // Login
@@ -2754,21 +2754,19 @@ function saveAuthState() {
 
 async function initAuth() {
   loadAuthState();
-  if (!authState.loggedIn) {
-    // No hay perfil? verificar con backend
-    try {
-      await apiGet('/auth/me');
-      // Hay perfil pero no esta logueado → ir a login
-      navigateTo('#/login');
-    } catch (err) {
-      // No hay perfil → ir a registro
-      navigateTo('#/register');
-    }
+  if (authState.loggedIn) {
+    // Logueado: mostrar username en header
+    const headerUsername = $('header-username');
+    if (headerUsername) headerUsername.textContent = authState.username;
     return;
   }
-  // Logueado: mostrar username en header
-  const headerUsername = $('header-username');
-  if (headerUsername) headerUsername.textContent = authState.username;
+  // No logueado: verificar si hay perfil en backend (silencioso, no redirigir)
+  try {
+    await apiGet('/auth/me');
+    // Hay perfil — el boton "Comenzar" del hero llevara a login
+  } catch (err) {
+    // No hay perfil — el boton "Comenzar" del hero llevara a registro
+  }
 }
 
 async function doLogin() {
