@@ -240,13 +240,17 @@ animate();
 const _ICON_SVGS = {
 'check-circle': '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>',
 'circle': '<circle cx="12" cy="12" r="10"/>',
+'circle-dot': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="1"/>',
 'alert-triangle': '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
 'x': '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
 'minus': '<path d="M5 12h14"/>',
 'plus': '<path d="M5 12h14"/><path d="M12 5v14"/>',
 'check': '<path d="M20 6 9 17l-5-5"/>',
+'check-circle-2': '<circle cx="12" cy="12" r="10"/><path d="M8 12.5 11 15.5 16 9"/>',
+'check-check': '<path d="M18 6 7 17l-5-5"/><path d="m22 10-5 5-3-3"/>',
 'alert-circle': '<circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/>',
 'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+'award': '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
 };
 function icon(name, size = 16) {
 const body = _ICON_SVGS[name];
@@ -1813,18 +1817,24 @@ return names[section] || section;
 }
 function _getOptionIcon(answerType, index) {
 const icons = {
-tea_tep_ted: ['check-circle', 'circle', 'alert-triangle'],
-frequency_4: ['x', 'minus', 'plus', 'check'],
-achievement_3: ['alert-circle', 'clock', 'check-circle']
+tea_tep_ted: ['award', 'clock', 'alert-triangle'],
+frequency_4: ['circle', 'circle-dot', 'check-circle-2', 'check-check'],
+achievement_3: ['circle', 'clock', 'check-circle']
 };
 const list = icons[answerType];
 if (!list) return null;
 return list[index] || null;
 }
 function _cleanLabel(label) {
-if (!label) return '';
+if (!label) return { prefix: '', text: '' };
 const idx = label.indexOf(' - ');
-return idx >= 0 ? label.substring(idx + 3).trim() : label;
+if (idx >= 0) {
+  return {
+    prefix: label.substring(0, idx).trim(),
+    text: label.substring(idx + 3).trim()
+  };
+}
+return { prefix: '', text: label };
 }
 function setupQuestionnaireForCurrentStudent() {
 showObservationsPanel();
@@ -1860,6 +1870,9 @@ show($('question-title-label'));
 }
 const optionsContainer = $('current-question-options');
 optionsContainer.innerHTML = '';
+const isLong = q.answer_type === 'tea_tep_ted' || (q.labels && q.labels.some(l => l.length > 30));
+optionsContainer.classList.toggle('full-mode', !!isLong);
+
 if (q.answer_type === 'free_text') {
 const textarea = document.createElement('textarea');
 textarea.rows = 4;
@@ -1887,8 +1900,14 @@ q.options.forEach((opt, i) => {
 const btn = document.createElement('button');
 btn.className = 'answer-btn';
 const iconName = _getOptionIcon(q.answer_type, i);
-const iconHtml = iconName ? `<span class="btn-icon">${icon(iconName, 20)}</span>` : '';
-btn.innerHTML = `${iconHtml}<span class="btn-text">${_cleanLabel(q.labels[i])}</span>`;
+const { prefix, text } = _cleanLabel(q.labels[i]);
+
+// Use prefix as badge text if it's not just a number, OR if there's no icon
+const showTextBadge = prefix && (isNaN(prefix) || !iconName);
+const badgeHtml = showTextBadge ? `<span class="btn-badge">${prefix}</span>` : '';
+const iconHtml = iconName ? `<span class="btn-icon-badge">${icon(iconName, 18)}</span>` : '';
+
+btn.innerHTML = `${iconHtml}${badgeHtml}<span class="btn-text">${text}</span>`;
 btn.dataset.value = opt;
 if (savedValue === opt || savedValue === q.labels[i]) btn.classList.add('selected');
 btn.addEventListener('click', () => handleAnswer(opt));
@@ -1930,14 +1949,6 @@ const allBtns = document.querySelectorAll('.answer-btn');
 allBtns.forEach(b => {
 if (b.dataset.value === value) {
   b.classList.add('selected');
-  b.style.transition = 'transform 150ms cubic-bezier(0.22, 1, 0.36, 1)';
-  b.style.transform = 'scale(0.96)';
-  requestAnimationFrame(function() {
-    requestAnimationFrame(function() {
-      b.style.transform = '';
-      b.style.transition = '';
-    });
-  });
 } else {
   b.classList.remove('selected');
 }
@@ -1949,7 +1960,7 @@ finishQuestionnaire();
 } else {
 renderQuestion(currentQuestionIndex + 1);
 }
-}, 350);
+}, 150);
 }
 function skipQuestion() {
 if (currentQuestionIndex >= totalQuestions - 1) {
