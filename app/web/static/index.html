@@ -222,16 +222,41 @@
 
         <!-- ====== Sidebar + Main Layout ====== -->
         <div id="layout-body" class="hidden">
-            <!-- Sidebar izquierdo: lista de cursos -->
+            <!-- Sidebar izquierdo: navegacion de cursos -->
             <aside id="sidebar" class="sidebar">
                 <div class="sidebar-header">
-                    <h3 class="sidebar-title">Mis Cursos</h3>
-                    <button id="btn-sidebar-close" class="btn-ghost btn-sm sidebar-close-btn" aria-label="Cerrar sidebar" style="display:none;">
-                        <i data-lucide="x" style="width:18px;height:18px;"></i>
-                    </button>
+                    <div class="sidebar-header-row">
+                        <h3 class="sidebar-title">Mis Cursos</h3>
+                        <span id="sidebar-course-count" class="sidebar-course-count">0</span>
+                        <button id="btn-sidebar-new-course" class="sidebar-add-btn" aria-label="Nuevo curso" title="Nuevo curso">
+                            <i data-lucide="plus" style="width:18px;height:18px;"></i>
+                        </button>
+                        <button id="btn-sidebar-close" class="btn-ghost btn-sm sidebar-close-btn" aria-label="Cerrar sidebar" style="display:none;">
+                            <i data-lucide="x" style="width:18px;height:18px;"></i>
+                        </button>
+                    </div>
+                    <div id="sidebar-create-course" class="sidebar-create-course hidden">
+                        <h4>Nuevo curso</h4>
+                        <label for="sidebar-new-course-name">Nombre del curso:</label>
+                        <input type="text" id="sidebar-new-course-name" placeholder="Ej: 1ro B ESN5">
+                        <label for="sidebar-new-students-list">Lista de alumnos (uno por linea):</label>
+                        <textarea id="sidebar-new-students-list" rows="4" placeholder="Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
+                        <div class="sidebar-create-actions">
+                            <button id="btn-sidebar-create-confirm" class="btn-primary btn-sm">Crear</button>
+                            <button id="btn-sidebar-create-cancel" class="btn-secondary btn-sm">Cancelar</button>
+                        </div>
+                    </div>
                 </div>
                 <nav id="sidebar-courses-list" class="sidebar-courses-list" role="navigation" aria-label="Cursos">
                 </nav>
+                <div class="sidebar-empty-state hidden" id="sidebar-empty">
+                    <p>Todavia no hay cursos.</p>
+                    <p class="sidebar-empty-hint">Crea tu primer curso para empezar.</p>
+                </div>
+            </aside>
+
+            <main id="main-content">
+
                 <div id="sidebar-contents-panel" class="sidebar-contents-panel hidden" role="complementary" aria-label="Contenidos del curso">
                     <h4 class="sidebar-contents-title">
                         <i data-lucide="book-open" style="width:14px;height:14px;"></i>
@@ -243,25 +268,6 @@
                         <i data-lucide="save" style="width:14px;height:14px;"></i> Guardar
                     </button>
                 </div>
-                <div class="sidebar-footer">
-                    <button id="btn-sidebar-new-course" class="btn-secondary btn-sm" style="width:100%;margin-top:0;">
-                        <i data-lucide="plus" style="width:16px;height:16px;"></i> Nuevo curso
-                    </button>
-                    <div id="sidebar-create-course" class="sidebar-create-course hidden">
-                        <h4>Nuevo curso</h4>
-                        <label for="sidebar-new-course-name">Nombre del curso:</label>
-                        <input type="text" id="sidebar-new-course-name" placeholder="Ej: 1ro B ESN5">
-                        <label for="sidebar-new-students-list">Lista de alumnos (uno por linea):</label>
-                        <textarea id="sidebar-new-students-list" rows="5" placeholder="Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
-                        <div class="sidebar-create-actions">
-                            <button id="btn-sidebar-create-confirm" class="btn-primary btn-sm">Crear</button>
-                            <button id="btn-sidebar-create-cancel" class="btn-secondary btn-sm">Cancelar</button>
-                        </div>
-                    </div>
-                </div>
-            </aside>
-
-            <main id="main-content">
 
                 <div id="courses-grid" class="hidden"></div>
 
