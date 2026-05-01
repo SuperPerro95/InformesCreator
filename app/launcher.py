@@ -44,6 +44,7 @@ class LauncherApp(tk.Tk):
         self.geometry(f"+{x}+{y}")
 
         self.ollama_cmd = None
+        self.use_wsl = False
         self.server_proc = None
         self.model_name = "deepseek-v4-flash:cloud"
 
@@ -143,18 +144,39 @@ class LauncherApp(tk.Tk):
                 self.progress["value"] = progress
         self.after(0, _do)
 
+    def _find_ollama_wsl(self):
+        try:
+            result = subprocess.run(
+                ["wsl", "which", "ollama"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                path = result.stdout.strip()
+                if path:
+                    return path
+        except Exception:
+            pass
+        return None
+
     def _find_ollama(self):
+        # 1. Buscar nativo
         cmd = shutil.which("ollama")
         if cmd:
-            return cmd
+            return cmd, False
         for path in [
             Path.home() / "AppData" / "Local" / "Programs" / "Ollama" / "ollama.exe",
             Path("C:/Program Files/Ollama/ollama.exe"),
             Path("C:/Program Files (x86)/Ollama/ollama.exe"),
         ]:
             if path.exists():
-                return str(path)
-        return None
+                return str(path), False
+        # 2. Buscar en WSL
+        wsl_path = self._find_ollama_wsl()
+        if wsl_path:
+            return wsl_path, True
+        return None, False
 
     def _find_python(self):
         app_dir = Path(__file__).resolve().parent
@@ -170,10 +192,20 @@ class LauncherApp(tk.Tk):
                 return path
         return None
 
+    def _run_ollama_cmd(self, args, **kwargs):
+        """Ejecuta un comando de Ollama considerando si es WSL."""
+        if self.use_wsl:
+            return subprocess.Popen(["wsl", "ollama"] + args, **kwargs)
+        return subprocess.Popen(
+            [self.ollama_cmd] + args,
+            creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+            **kwargs,
+        )
+
     def _run_checks(self):
         # 1. Verificar Ollama instalado
         self._update_status("Verificando Ollama...", progress=10)
-        self.ollama_cmd = self._find_ollama()
+        self.ollama_cmd, self.use_wsl = self._find_ollama()
         if not self.ollama_cmd:
             self._update_status(
                 "❌ Ollama no esta instalado", "#dc2626",
@@ -190,11 +222,10 @@ class LauncherApp(tk.Tk):
                     pass
         except Exception:
             self._update_status("Iniciando servidor Ollama...", "#d97706", progress=30)
-            subprocess.Popen(
-                [self.ollama_cmd, "serve"],
+            self._run_ollama_cmd(
+                ["serve"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             for i in range(15):
                 time.sleep(1)
@@ -224,12 +255,11 @@ class LauncherApp(tk.Tk):
 
         if self.model_name not in models:
             self._update_status(f"Descargando {self.model_name}...", "#d97706", progress=60)
-            proc = subprocess.Popen(
-                [self.ollama_cmd, "pull", self.model_name],
+            proc = self._run_ollama_cmd(
+                ["pull", self.model_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             if proc.stdout is None:
                 self._update_status(
@@ -345,11 +375,10 @@ class LauncherApp(tk.Tk):
         try:
             if not self.ollama_cmd:
                 return
-            subprocess.Popen(
-                [self.ollama_cmd, "login"],
+            self._run_ollama_cmd(
+                ["login"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             self._update_status(
                 "ℹ️ Login iniciado", "#2563eb",
