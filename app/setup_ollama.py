@@ -15,19 +15,26 @@ def _is_wsl_available() -> bool:
 
 def _find_ollama_wsl() -> Optional[str]:
     """Busca ollama dentro de WSL."""
-    try:
-        result = subprocess.run(
-            ["wsl", "which", "ollama"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-        )
-        if result.returncode == 0:
-            path = result.stdout.strip()
-            if path:
-                return path
-    except Exception:
-        pass
+    wsl_candidates = ["wsl"]
+    if sys.platform == "win32":
+        wsl_candidates.extend([
+            r"C:\Windows\System32\wsl.exe",
+            r"C:\Windows\SysWOW64\wsl.exe",
+        ])
+    for wsl_exe in wsl_candidates:
+        try:
+            result = subprocess.run(
+                [wsl_exe, "which", "ollama"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if result.returncode == 0:
+                path = result.stdout.strip()
+                if path:
+                    return path
+        except Exception:
+            continue
     return None
 
 

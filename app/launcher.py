@@ -145,23 +145,54 @@ class LauncherApp(tk.Tk):
         self.after(0, _do)
 
     def _find_ollama_wsl(self):
-        try:
-            result = subprocess.run(
-                ["wsl", "which", "ollama"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode == 0:
-                path = result.stdout.strip()
-                if path:
-                    return path
-        except Exception:
-            pass
+        # Probar con wsl en PATH y rutas absolutas comunes
+        wsl_candidates = ["wsl"]
+        if sys.platform == "win32":
+            wsl_candidates.extend([
+                r"C:\Windows\System32\wsl.exe",
+                r"C:\Windows\SysWOW64\wsl.exe",
+            ])
+        for wsl_exe in wsl_candidates:
+            try:
+                result = subprocess.run(
+                    [wsl_exe, "which", "ollama"],
+                    capture_output=True,
+                    text=True,
+                    timeout=15,
+                )
+                if result.returncode == 0:
+                    path = result.stdout.strip()
+                    if path:
+                        return path
+            except Exception:
+                continue
         return None
 
+    def _load_ollama_config(self):
+        """Carga la configuracion de Ollama persistida por el wizard."""
+        try:
+            import json
+            app_dir = Path(__file__).resolve().parent
+            sys.path.insert(0, str(app_dir))
+            from paths import user_data_path
+            config_path = user_data_path("ollama_config.json")
+            if config_path.exists():
+                data = json.loads(config_path.read_text(encoding="utf-8"))
+                cmd = data.get("ollama_cmd")
+                use_wsl = data.get("use_wsl", False)
+                if cmd:
+                    return cmd, use_wsl
+        except Exception:
+            pass
+        return None, False
+
     def _find_ollama(self):
-        # 1. Buscar nativo
+        # 1. Primero: usar config persistida por el wizard
+        cmd, use_wsl = self._load_ollama_config()
+        if cmd:
+            return cmd, use_wsl
+
+        # 2. Buscar nativo
         cmd = shutil.which("ollama")
         if cmd:
             return cmd, False
@@ -172,10 +203,13 @@ class LauncherApp(tk.Tk):
         ]:
             if path.exists():
                 return str(path), False
-        # 2. Buscar en WSL
+
+        # 3. Buscar en WSL
+        self._update_status("Buscando Ollama en WSL...", detail="Esto puede tardar unos segundos...")
         wsl_path = self._find_ollama_wsl()
         if wsl_path:
             return wsl_path, True
+
         return None, False
 
     def _find_python(self):

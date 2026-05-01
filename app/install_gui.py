@@ -24,6 +24,35 @@ from urllib.request import Request, urlopen
 APP_DIR = Path(__file__).resolve().parent
 ROOT_DIR = APP_DIR.parent
 
+# Asegurar que user_data/ exista
+sys.path.insert(0, str(APP_DIR))
+from paths import user_data_path
+
+
+def _save_ollama_config(cmd: str, use_wsl: bool):
+    """Persiste la configuracion de Ollama para que el launcher la use."""
+    try:
+        config_path = user_data_path("ollama_config.json")
+        config = {
+            "ollama_cmd": cmd,
+            "use_wsl": use_wsl,
+            "detected_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        }
+        config_path.write_text(json.dumps(config, indent=2), encoding="utf-8")
+    except Exception:
+        pass
+
+
+def _load_ollama_config():
+    """Carga la configuracion persistida de Ollama."""
+    try:
+        config_path = user_data_path("ollama_config.json")
+        if config_path.exists():
+            return json.loads(config_path.read_text(encoding="utf-8"))
+    except Exception:
+        pass
+    return None
+
 
 def _read_version() -> str:
     try:
@@ -357,6 +386,9 @@ class InstallWizard(tk.Tk):
             self.btn_next.config(state=tk.DISABLED)
             return
 
+        # Guardar config para que el launcher la use despues
+        _save_ollama_config(self.ollama_cmd, self.use_wsl)
+
         status_text = "✅ Ollama instalado"
         if self.use_wsl:
             status_text += " (WSL)"
@@ -499,6 +531,8 @@ class InstallWizard(tk.Tk):
                             status_text = "✅ Ollama instalado y servidor activo"
                             if self.use_wsl:
                                 status_text += " (WSL)"
+                            # Guardar config con servidor activo
+                            _save_ollama_config(self.ollama_cmd, self.use_wsl)
                             self.after(0, lambda: (
                                 self.ollama_status_lbl.config(text=status_text, fg="#16a34a"),
                                 self.ollama_detail_lbl.config(text="Servidor respondiendo en localhost:11434"),
