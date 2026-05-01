@@ -3,17 +3,43 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Tuple
 
 import requests
 
 
-def _find_ollama_executable() -> Optional[str]:
-    """Busca el ejecutable de Ollama en el PATH y en rutas comunes."""
-    # 1. Buscar en PATH
+def _is_wsl_available() -> bool:
+    """Verifica si wsl esta disponible en el PATH."""
+    return shutil.which("wsl") is not None
+
+
+def _find_ollama_wsl() -> Optional[str]:
+    """Busca ollama dentro de WSL."""
+    try:
+        result = subprocess.run(
+            ["wsl", "which", "ollama"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            path = result.stdout.strip()
+            if path:
+                return path
+    except Exception:
+        pass
+    return None
+
+
+def _find_ollama_executable() -> Tuple[Optional[str], bool]:
+    """
+    Busca el ejecutable de Ollama en el PATH, rutas comunes, y WSL.
+    Retorna (path, is_wsl).
+    """
+    # 1. Buscar en PATH nativo
     cmd = shutil.which("ollama")
     if cmd:
-        return cmd
+        return cmd, False
 
     # 2. Windows: buscar en rutas típicas
     if sys.platform == "win32":
@@ -25,21 +51,29 @@ def _find_ollama_executable() -> Optional[str]:
         ]
         for p in common_paths:
             if p.exists():
-                return str(p)
+                return str(p), False
 
-    return None
+    # 3. Buscar en WSL
+    wsl_path = _find_ollama_wsl()
+    if wsl_path:
+        return wsl_path, True
+
+    return None, False
 
 
 def is_ollama_installed() -> bool:
-    """Verifica si Ollama está instalado buscando el ejecutable."""
-    return _find_ollama_executable() is not None
+    """Verifica si Ollama está instalado buscando el ejecutable (nativo o WSL)."""
+    path, _ = _find_ollama_executable()
+    return path is not None
 
 
 def _run_ollama(args: list, **kwargs) -> subprocess.CompletedProcess:
     """Ejecuta Ollama usando la ruta resuelta automáticamente."""
-    exe = _find_ollama_executable()
+    exe, is_wsl = _find_ollama_executable()
     if exe is None:
         raise FileNotFoundError("Ollama executable not found")
+    if is_wsl:
+        return subprocess.run(["wsl", "ollama"] + args, **kwargs)
     return subprocess.run([exe] + args, **kwargs)
 
 
@@ -55,13 +89,19 @@ def is_ollama_running(url: str = "http://localhost:11434") -> bool:
 def start_ollama_server() -> bool:
     """Intenta iniciar el servidor de Ollama."""
     print("🚀 Intentando iniciar Ollama...")
-    exe = _find_ollama_executable()
+    exe, is_wsl = _find_ollama_executable()
     if exe is None:
         print("❌ No se encontró el ejecutable de Ollama.")
         return False
 
     try:
-        if sys.platform == "win32":
+        if is_wsl:
+            subprocess.Popen(
+                ["wsl", "ollama", "serve"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        elif sys.platform == "win32":
             subprocess.Popen(
                 [exe, "serve"],
                 creationflags=subprocess.CREATE_NEW_CONSOLE,
@@ -141,7 +181,7 @@ def get_available_models(url: str = "http://localhost:11434") -> list:
     return []
 
 
-def select_model(url: str = "http://localhost:11434", current_model: str = "gemma-4:31b-cloud") -> Optional[str]:
+def select_model(url: str = "http://localhost:11434", current_model: str = "deepseek-v4-flash:cloud") -> Optional[str]:
     """Interactivamente permite al usuario elegir un modelo."""
     models = get_available_models(url)
 

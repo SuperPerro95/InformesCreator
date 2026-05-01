@@ -5,9 +5,7 @@ Genera InformesCreator_Windows.zip listo para distribuir.
 
 Estructura del zip:
     app/           <- codigo fuente completo
-    install.vbs    <- instalador (sin terminal)
-    InformesCreator.vbs  <- launcher diario (sin terminal)
-    InformesCreator.bat  <- backup launcher
+    Install.bat    <- instalador unico (instala Python, deps, lanza GUI)
     README.md      <- documentacion
 
 NO incluye: user_data/, Informes/, .venv/, __pycache__/, tests/
@@ -24,11 +22,7 @@ def build_dist() -> Path:
     # Directorios/archivos a incluir explicitamente
     includes = [
         root / "app",
-        root / "install.vbs",
-        root / "InformesCreator.vbs",
-        root / "InformesCreator.bat",
-        root / "install_windows.bat",
-        root / "install_gui.bat",
+        root / "Install.bat",
         root / "README.md",
     ]
 

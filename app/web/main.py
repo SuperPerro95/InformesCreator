@@ -10,7 +10,6 @@ Uso:
 import os
 import socket
 import sys
-import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -51,17 +50,13 @@ async def lifespan(app: FastAPI):
     print(f"  Local:    http://localhost:8080")
     print(f"  Red:      http://{local_ip}:8080")
     print("=" * 60)
-    try:
-        webbrowser.open("http://localhost:8080")
-    except Exception:
-        pass
     yield
 
 
 app = FastAPI(
     title="InformesCreator API",
     description="API para generación de informes de avance escolares",
-    version="0.5.2",
+    version="0.5.3",
     lifespan=lifespan,
 )
 

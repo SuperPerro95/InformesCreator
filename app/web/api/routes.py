@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Response, Cookie, Request
 from pydantic import BaseModel, ConfigDict
 
 # Agregar raíz del proyecto al path para importar módulos existentes
@@ -174,29 +174,43 @@ class AssignQuestionnaireRequest(BaseModel):
 
 # ============== Profile Helpers ==============
 
-PROFILE_FILE = "profile.json"
+USERS_FILE = "users.json"
 
 
-def _get_profile_path() -> Path:
-    return user_data_path(PROFILE_FILE)
+def _get_users_path() -> Path:
+    return user_data_path(USERS_FILE)
 
 
 def _hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
 
-def _load_profile() -> Optional[Dict]:
-    path = _get_profile_path()
+def _load_users() -> Dict:
+    path = _get_users_path()
     if path.exists():
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
-    return None
+    
+    # Migrar desde profile.json antiguo si existe
+    old_path = user_data_path("profile.json")
+    if old_path.exists():
+        with open(old_path, "r", encoding="utf-8") as f:
+            old = json.load(f)
+            users = {old["username"]: old}
+            _save_users(users)
+            return users
+    return {}
 
 
-def _save_profile(profile: Dict) -> None:
-    path = _get_profile_path()
+def _save_users(users: Dict) -> None:
+    path = _get_users_path()
     with open(path, "w", encoding="utf-8") as f:
-        json.dump(profile, f, indent=4, ensure_ascii=False)
+        json.dump(users, f, indent=4, ensure_ascii=False)
+
+
+class UpdateProfileRequest(BaseModel):
+    display_name: Optional[str] = None
+    password: Optional[str] = None
 
 
 # ============== Endpoints ==============
@@ -208,43 +222,91 @@ def health():
 
 @router.post("/auth/register")
 def register(req: RegisterRequest):
-    """Crea el perfil único de la app. Solo funciona si no existe uno previo."""
-    if _load_profile():
-        raise HTTPException(status_code=400, detail="Ya existe un perfil. Usá /auth/login.")
+    """Crea un nuevo usuario."""
+    users = _load_users()
+    if req.username in users:
+        raise HTTPException(status_code=400, detail="El nombre de usuario ya existe. Usá /auth/login.")
     if not req.username or not req.password:
         raise HTTPException(status_code=400, detail="Usuario y contraseña requeridos.")
+    
     profile = {
         "username": req.username,
         "password_hash": _hash_password(req.password),
         "display_name": req.display_name or req.username,
     }
-    _save_profile(profile)
+    users[req.username] = profile
+    _save_users(users)
     return {"ok": True, "username": profile["username"]}
 
 
 @router.post("/auth/login")
-def login(req: LoginRequest):
-    """Valida credenciales contra el perfil guardado."""
-    profile = _load_profile()
-    if not profile:
-        raise HTTPException(status_code=400, detail="No existe perfil. Registrate primero.")
-    if profile["username"] != req.username:
+def login(req: LoginRequest, response: Response):
+    """Valida credenciales y establece cookie de sesión."""
+    users = _load_users()
+    if not users:
+        raise HTTPException(status_code=400, detail="No existen usuarios. Registrate primero.")
+    
+    profile = users.get(req.username)
+    if not profile or profile["password_hash"] != _hash_password(req.password):
         raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
-    if profile["password_hash"] != _hash_password(req.password):
-        raise HTTPException(status_code=401, detail="Usuario o contraseña incorrectos.")
+    
+    # Establecer cookie (válida por 30 días, HTTPOnly para seguridad)
+    response.set_cookie(key="informes_session", value=profile["username"], httponly=True, max_age=30*24*3600)
+    
     return {"ok": True, "username": profile["username"], "display_name": profile.get("display_name")}
 
 
+@router.post("/auth/logout")
+def logout(response: Response):
+    """Cierra la sesión borrando la cookie."""
+    response.delete_cookie("informes_session")
+    return {"ok": True}
+
+
 @router.get("/auth/me", response_model=ProfileResponse)
-def me():
-    """Devuelve datos del perfil sin el hash de contraseña."""
-    profile = _load_profile()
-    if not profile:
-        raise HTTPException(status_code=404, detail="No hay perfil creado.")
+def me(request: Request):
+    """
+    Devuelve datos del perfil usando la cookie.
+    Si no hay usuarios creados, devuelve 404 (el frontend lo usa para saber si mostrar Registro).
+    Si hay usuarios pero no hay sesión, devuelve usuario vacío con 200 (el frontend va a Login).
+    """
+    users = _load_users()
+    if not users:
+        raise HTTPException(status_code=404, detail="No hay perfiles creados.")
+    
+    session_user = request.cookies.get("informes_session")
+    if not session_user or session_user not in users:
+        # Devolver 200 con un usuario vacío para que el frontend intente loguearse
+        # en lugar de enviarlo a registro.
+        return {"username": "", "display_name": ""}
+        
+    profile = users[session_user]
     return {
         "username": profile["username"],
         "display_name": profile.get("display_name"),
     }
+
+
+@router.put("/auth/profile")
+def update_profile(req: UpdateProfileRequest, request: Request):
+    """Modifica el nombre o contraseña del usuario logueado."""
+    users = _load_users()
+    session_user = request.cookies.get("informes_session")
+    
+    if not session_user or session_user not in users:
+        raise HTTPException(status_code=401, detail="No estás autenticado.")
+        
+    profile = users[session_user]
+    
+    if req.display_name:
+        profile["display_name"] = req.display_name
+    if req.password:
+        profile["password_hash"] = _hash_password(req.password)
+        
+    users[session_user] = profile
+    _save_users(users)
+    
+    return {"ok": True, "display_name": profile["display_name"]}
 
 
 @router.get("/ollama/status", response_model=OllamaStatusResponse)
@@ -268,7 +330,14 @@ def ollama_models():
 @router.get("/courses")
 def list_courses():
     try:
-        courses = discover_courses(config.base_path)
+        course_names = discover_courses(config.base_path)
+        courses = []
+        for name in course_names:
+            course_path = config.base_path / name / "Alumnos"
+            student_count = 0
+            if course_path.exists():
+                student_count = len([f for f in course_path.iterdir() if f.suffix == '.md'])
+            courses.append({"name": name, "student_count": student_count})
         return {"courses": courses}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

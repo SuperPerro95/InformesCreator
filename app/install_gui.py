@@ -30,14 +30,15 @@ def _read_version() -> str:
         vfile = APP_DIR / "version.txt"
         return vfile.read_text(encoding="utf-8").strip()
     except Exception:
-        return "1.0.1"
+        return "0.5.3"
+
 
 CLOUD_MODELS = [
+    ("deepseek-v4-flash:cloud", "~16 GB", "~10-18 min"),
     ("gemma4:31b-cloud", "~20 GB", "~15-25 min"),
     ("qwen3.5:cloud", "~18 GB", "~12-22 min"),
     ("nemotron-3-super:cloud", "~22 GB", "~18-30 min"),
     ("gemini-3-flash-preview:cloud", "~12 GB", "~8-15 min"),
-    ("deepseek-v4-flash:cloud", "~16 GB", "~10-18 min"),
 ]
 
 LOCAL_MODELS = [
@@ -61,15 +62,27 @@ class InstallWizard(tk.Tk):
         self.geometry(f"+{x}+{y}")
 
         self.current_step = 0
-        self.total_steps = 5
-        self.python_cmd = None
+        self.total_steps = 4
         self.ollama_cmd = None
-        self.model_name = "gemma4:31b-cloud"
+        self.use_wsl = False
+        self.model_name = "deepseek-v4-flash:cloud"
         self.server_running = False
         self.installed_models = []
+        self.python_cmd = self._find_python()
 
         self._build_ui()
         self._show_step(0)
+
+    def _find_python(self):
+        for cmd in ["python", "py", "python3"]:
+            path = shutil.which(cmd)
+            if path:
+                return path
+        for ver in ["312", "311", "310"]:
+            path = Path.home() / "AppData" / "Local" / "Programs" / f"Python\Python{ver}" / "python.exe"
+            if path.exists():
+                return str(path)
+        return None
 
     def _build_ui(self):
         # Frame superior: barra de progreso
@@ -78,7 +91,7 @@ class InstallWizard(tk.Tk):
         self.top_frame.pack_propagate(False)
 
         self.step_labels = []
-        steps_text = ["Python", "Ollama", "Modelo", "Dependencias", "Listo"]
+        steps_text = ["Ollama", "Modelo", "Dependencias", "Listo"]
         for i, text in enumerate(steps_text):
             lbl = tk.Label(
                 self.top_frame,
@@ -160,20 +173,18 @@ class InstallWizard(tk.Tk):
         self.btn_prev.config(state=tk.NORMAL if step > 0 else tk.DISABLED)
 
         # Ajustar altura de ventana segun el paso
-        if step == 2:
+        if step == 1:
             self.geometry("700x620")
         else:
             self.geometry("700x520")
 
         if step == 0:
-            self._build_step_python()
-        elif step == 1:
             self._build_step_ollama()
-        elif step == 2:
+        elif step == 1:
             self._build_step_model()
-        elif step == 3:
+        elif step == 2:
             self._build_step_deps()
-        elif step == 4:
+        elif step == 3:
             self._build_step_finish()
 
     def _next_step(self):
@@ -185,163 +196,12 @@ class InstallWizard(tk.Tk):
             self._show_step(self.current_step - 1)
 
     # ================================================================
-    # PASO 1: PYTHON
-    # ================================================================
-    def _build_step_python(self):
-        tk.Label(
-            self.content_frame,
-            text="Paso 1: Verificar Python",
-            font=("Nunito", 18, "bold"),
-            bg="#ffffff",
-            fg="#111827",
-        ).pack(anchor=tk.W, pady=(0, 10))
-
-        self.python_status_lbl = tk.Label(
-            self.content_frame,
-            text="Verificando...",
-            font=("Inter", 12),
-            bg="#ffffff",
-            fg="#6b7280",
-        )
-        self.python_status_lbl.pack(anchor=tk.W, pady=5)
-
-        self.python_detail_lbl = tk.Label(
-            self.content_frame,
-            text="",
-            font=("Inter", 10),
-            bg="#ffffff",
-            fg="#6b7280",
-        )
-        self.python_detail_lbl.pack(anchor=tk.W, pady=2)
-
-        self.btn_install_python = tk.Button(
-            self.content_frame,
-            text="Instalar Python",
-            font=("Inter", 11, "bold"),
-            bg="#2563eb",
-            fg="#ffffff",
-            activebackground="#1d4ed8",
-            bd=0,
-            padx=20,
-            pady=8,
-            cursor="hand2",
-            command=self._thread_install_python,
-        )
-        self.btn_install_python.pack(anchor=tk.W, pady=15)
-        self.btn_install_python.pack_forget()  # Ocultar hasta que haga falta
-
-        self.btn_next.config(state=tk.DISABLED)
-        self._check_python()
-
-    def _check_python(self):
-        for cmd in ["python", "py", "python3"]:
-            path = shutil.which(cmd)
-            if path:
-                try:
-                    result = subprocess.run(
-                        [path, "--version"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    version = result.stdout.strip() or result.stderr.strip()
-                    self.python_cmd = path
-                    self.python_status_lbl.config(
-                        text=f"✅ Python detectado: {version}", fg="#16a34a"
-                    )
-                    self.python_detail_lbl.config(text=f"Ruta: {path}")
-                    self.btn_next.config(state=tk.NORMAL)
-                    return
-                except Exception:
-                    continue
-
-        # Buscar en ubicaciones tipicas de Windows
-        for ver in ["312", "311", "310"]:
-            path = Path.home() / "AppData" / "Local" / "Programs" / f"Python\\Python{ver}" / "python.exe"
-            if path.exists():
-                self.python_cmd = str(path)
-                self.python_status_lbl.config(
-                    text=f"✅ Python detectado: {path.name}", fg="#16a34a"
-                )
-                self.python_detail_lbl.config(text=f"Ruta: {path}")
-                self.btn_next.config(state=tk.NORMAL)
-                return
-
-        self.python_status_lbl.config(
-            text="❌ Python no esta instalado", fg="#dc2626"
-        )
-        self.python_detail_lbl.config(
-            text="Se necesita Python 3.10 o superior. Hace clic en 'Instalar Python'."
-        )
-        self.btn_install_python.pack(anchor=tk.W, pady=15)
-        self.btn_next.config(state=tk.DISABLED)
-
-    def _thread_install_python(self):
-        self.btn_install_python.config(state=tk.DISABLED, text="Instalando...")
-        threading.Thread(target=self._install_python, daemon=True).start()
-
-    def _install_python(self):
-        try:
-            installer_url = "https://www.python.org/ftp/python/3.12.9/python-3.12.9-amd64.exe"
-            installer_path = Path("python_installer.exe")
-
-            self.after(0, lambda: self.python_status_lbl.config(
-                text="⏳ Descargando Python...", fg="#d97706"
-            ))
-
-            # Descargar
-            data = urlopen(installer_url, timeout=120).read()
-            installer_path.write_bytes(data)
-
-            self.after(0, lambda: self.python_status_lbl.config(
-                text="⏳ Instalando Python...", fg="#d97706"
-            ))
-
-            # Instalar silenciosamente
-            target = Path.home() / "AppData" / "Local" / "Programs" / "Python" / "Python312"
-            subprocess.run(
-                [
-                    str(installer_path),
-                    "/quiet",
-                    "InstallAllUsers=0",
-                    "PrependPath=1",
-                    "Include_test=0",
-                    f"TargetDir={target}",
-                ],
-                check=True,
-                timeout=300,
-            )
-            installer_path.unlink(missing_ok=True)
-
-            python_path = target / "python.exe"
-            if python_path.exists():
-                self.python_cmd = str(python_path)
-                self.after(0, lambda: (
-                    self.python_status_lbl.config(
-                        text="✅ Python instalado correctamente", fg="#16a34a"
-                    ),
-                    self.python_detail_lbl.config(text=f"Ruta: {python_path}"),
-                    self.btn_install_python.pack_forget(),
-                    self.btn_next.config(state=tk.NORMAL),
-                ))
-            else:
-                raise FileNotFoundError("No se encontro python.exe despues de instalar")
-
-        except Exception as e:
-            self.after(0, lambda: (
-                self.python_status_lbl.config(
-                    text=f"❌ Error instalando Python: {e}", fg="#dc2626"
-                ),
-                self.btn_install_python.config(state=tk.NORMAL, text="Reintentar"),
-            ))
-
-    # ================================================================
-    # PASO 2: OLLAMA
+    # PASO 1: OLLAMA
     # ================================================================
     def _build_step_ollama(self):
         tk.Label(
             self.content_frame,
-            text="Paso 2: Verificar Ollama",
+            text="Paso 1: Verificar Ollama",
             font=("Nunito", 18, "bold"),
             bg="#ffffff",
             fg="#111827",
@@ -422,7 +282,7 @@ class InstallWizard(tk.Tk):
 
         self.btn_skip_ollama = tk.Button(
             self.content_frame,
-            text="Configurar despues →",
+            text="Configurar despues ->",
             font=("Inter", 10, "bold"),
             bg="#f3f4f6",
             fg="#374151",
@@ -437,7 +297,7 @@ class InstallWizard(tk.Tk):
         self.btn_next.config(state=tk.DISABLED)
         self._check_ollama()
 
-    def _find_ollama(self):
+    def _find_ollama_native(self):
         cmd = shutil.which("ollama")
         if cmd:
             return cmd
@@ -450,8 +310,41 @@ class InstallWizard(tk.Tk):
                 return str(path)
         return None
 
+    def _find_ollama_wsl(self):
+        try:
+            result = subprocess.run(
+                ["wsl", "which", "ollama"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                path = result.stdout.strip()
+                if path:
+                    return path
+        except Exception:
+            pass
+        return None
+
     def _check_ollama(self):
-        self.ollama_cmd = self._find_ollama()
+        # Ocultar todos los botones primero
+        for btn in [self.btn_install_ollama, self.btn_start_ollama, self.btn_retry_ollama, self.btn_done_ollama, self.btn_skip_ollama]:
+            try:
+                btn.pack_forget()
+            except Exception:
+                pass
+
+        # 1. Buscar nativo
+        self.ollama_cmd = self._find_ollama_native()
+        self.use_wsl = False
+
+        # 2. Buscar en WSL
+        if not self.ollama_cmd:
+            wsl_path = self._find_ollama_wsl()
+            if wsl_path:
+                self.ollama_cmd = wsl_path
+                self.use_wsl = True
+
         if not self.ollama_cmd:
             self.ollama_status_lbl.config(
                 text="❌ Ollama no esta instalado", fg="#dc2626"
@@ -464,9 +357,10 @@ class InstallWizard(tk.Tk):
             self.btn_next.config(state=tk.DISABLED)
             return
 
-        self.ollama_status_lbl.config(
-            text="✅ Ollama instalado", fg="#16a34a"
-        )
+        status_text = "✅ Ollama instalado"
+        if self.use_wsl:
+            status_text += " (WSL)"
+        self.ollama_status_lbl.config(text=status_text, fg="#16a34a")
         self.ollama_detail_lbl.config(text=f"Ruta: {self.ollama_cmd}")
 
         # Verificar si el servidor esta corriendo
@@ -476,7 +370,7 @@ class InstallWizard(tk.Tk):
                 if resp.status == 200:
                     self.server_running = True
                     self.ollama_status_lbl.config(
-                        text="✅ Ollama instalado y servidor activo", fg="#16a34a"
+                        text=status_text + " y servidor activo", fg="#16a34a"
                     )
                     self.btn_skip_ollama.pack_forget()
                     self.btn_next.config(state=tk.NORMAL)
@@ -497,6 +391,7 @@ class InstallWizard(tk.Tk):
     def _skip_ollama(self):
         self.server_running = False
         self.ollama_cmd = None
+        self.use_wsl = False
         self.ollama_status_lbl.config(
             text="ℹ️ Ollama se configurara despues", fg="#2563eb"
         )
@@ -532,7 +427,8 @@ class InstallWizard(tk.Tk):
             subprocess.run([str(installer), "/S"], check=True, timeout=120)
             installer.unlink(missing_ok=True)
 
-            self.ollama_cmd = self._find_ollama()
+            self.ollama_cmd = self._find_ollama_native()
+            self.use_wsl = False
             if self.ollama_cmd:
                 self.after(0, lambda: (
                     self.ollama_status_lbl.config(
@@ -575,12 +471,19 @@ class InstallWizard(tk.Tk):
             if not self.ollama_cmd:
                 raise RuntimeError("Ollama no encontrado")
 
-            subprocess.Popen(
-                [self.ollama_cmd, "serve"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-            )
+            if self.use_wsl:
+                subprocess.Popen(
+                    ["wsl", "ollama", "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                subprocess.Popen(
+                    [self.ollama_cmd, "serve"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                )
 
             self.after(0, lambda: self.ollama_status_lbl.config(
                 text="⏳ Esperando a que Ollama este listo...", fg="#d97706"
@@ -593,10 +496,11 @@ class InstallWizard(tk.Tk):
                     with urlopen(req, timeout=3) as resp:
                         if resp.status == 200:
                             self.server_running = True
+                            status_text = "✅ Ollama instalado y servidor activo"
+                            if self.use_wsl:
+                                status_text += " (WSL)"
                             self.after(0, lambda: (
-                                self.ollama_status_lbl.config(
-                                    text="✅ Ollama instalado y servidor activo", fg="#16a34a"
-                                ),
+                                self.ollama_status_lbl.config(text=status_text, fg="#16a34a"),
                                 self.ollama_detail_lbl.config(text="Servidor respondiendo en localhost:11434"),
                                 self.btn_start_ollama.pack_forget(),
                                 self.btn_next.config(state=tk.NORMAL),
@@ -616,40 +520,20 @@ class InstallWizard(tk.Tk):
             ))
 
     # ================================================================
-    # PASO 3: MODELO
+    # PASO 2: MODELO
     # ================================================================
     def _build_step_model(self):
-        # Header con titulo y boton Continuar arriba a la derecha
-        header_frame = tk.Frame(self.content_frame, bg="#ffffff")
-        header_frame.pack(fill=tk.X, pady=(0, 10))
-
         tk.Label(
-            header_frame,
-            text="Paso 3: Configurar modelo de IA",
+            self.content_frame,
+            text="Paso 2: Configurar modelo de IA",
             font=("Nunito", 18, "bold"),
             bg="#ffffff",
             fg="#111827",
-        ).pack(side=tk.LEFT)
+        ).pack(anchor=tk.W, pady=(0, 10))
 
-        self.btn_continue_top = tk.Button(
-            header_frame,
-            text="Continuar →",
-            font=("Inter", 11, "bold"),
-            bg="#2563eb",
-            fg="#ffffff",
-            activebackground="#1d4ed8",
-            bd=0,
-            padx=20,
-            pady=6,
-            cursor="hand2",
-            command=self._next_step,
-        )
-        self.btn_continue_top.pack(side=tk.RIGHT)
-
-        # Boton Instalar mas tarde - arriba para ser mas accesible
         self.btn_skip_models = tk.Button(
             self.content_frame,
-            text="Instalar mas tarde →",
+            text="Instalar mas tarde ->",
             font=("Inter", 10, "bold"),
             bg="#f3f4f6",
             fg="#374151",
@@ -757,24 +641,34 @@ class InstallWizard(tk.Tk):
         )
 
         self.btn_next.config(state=tk.DISABLED)
-        self.btn_continue_top.config(state=tk.DISABLED)
+        self.model_checked = False
         self._check_model()
+
+    def _hide_all_model_buttons(self):
+        """Oculta todos los botones del paso de modelos de forma segura."""
+        for btn in [self.btn_skip_models, self.btn_login_cloud, self.btn_pull_cloud, self.btn_install_local]:
+            try:
+                btn.pack_forget()
+            except Exception:
+                pass
 
     def _skip_models(self):
         self.model_status_lbl.config(
             text="ℹ️ Modelos omitidos. Podes descargarlos despues desde el launcher.", fg="#2563eb"
         )
-        self.btn_skip_models.pack_forget()
-        self.btn_login_cloud.pack_forget()
-        self.btn_pull_cloud.pack_forget()
+        self._hide_all_model_buttons()
         for row in self.cloud_models_frame.winfo_children():
             for widget in row.winfo_children():
                 if isinstance(widget, tk.Button):
                     widget.config(state=tk.DISABLED)
+        for row in self.local_models_frame.winfo_children():
+            for widget in row.winfo_children():
+                if isinstance(widget, (tk.Radiobutton, tk.Button)):
+                    widget.config(state=tk.DISABLED)
         self.btn_next.config(state=tk.NORMAL)
-        self.btn_continue_top.config(state=tk.NORMAL)
 
     def _check_model(self):
+        self._hide_all_model_buttons()
         try:
             req = Request("http://localhost:11434/api/tags", method="GET")
             with urlopen(req, timeout=5) as resp:
@@ -831,13 +725,14 @@ class InstallWizard(tk.Tk):
                 text=f"✅ {cloud_count}/{total_cloud} modelos cloud disponibles. Podes continuar.", fg="#16a34a"
             )
             self.btn_next.config(state=tk.NORMAL)
-            self.btn_continue_top.config(state=tk.NORMAL)
+            self.model_checked = True
         else:
             self.model_status_lbl.config(
                 text=f"❌ Ningun modelo cloud instalado. Instala al menos uno para continuar.", fg="#dc2626"
             )
             self.btn_next.config(state=tk.DISABLED)
-            self.btn_continue_top.config(state=tk.DISABLED)
+            self.btn_skip_models.pack(anchor=tk.W, pady=(0, 5))
+            self.model_checked = False
 
         # Rebuild local models UI
         for widget in self.local_models_frame.winfo_children():
@@ -902,13 +797,21 @@ class InstallWizard(tk.Tk):
                 text=f"⏳ Descargando {model}...", fg="#d97706"
             ))
 
-            proc = subprocess.Popen(
-                [self.ollama_cmd, "pull", model],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-            )
+            if self.use_wsl:
+                proc = subprocess.Popen(
+                    ["wsl", "ollama", "pull", model],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            else:
+                proc = subprocess.Popen(
+                    [self.ollama_cmd, "pull", model],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                )
 
             output_lines = []
             for line in proc.stdout:
@@ -965,13 +868,21 @@ class InstallWizard(tk.Tk):
                 text=f"⏳ Descargando {model}...", fg="#d97706"
             ))
 
-            proc = subprocess.Popen(
-                [self.ollama_cmd, "pull", model],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-            )
+            if self.use_wsl:
+                proc = subprocess.Popen(
+                    ["wsl", "ollama", "pull", model],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+            else:
+                proc = subprocess.Popen(
+                    [self.ollama_cmd, "pull", model],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                )
 
             for line in proc.stdout:
                 line = line.strip()
@@ -1010,12 +921,19 @@ class InstallWizard(tk.Tk):
                 text="⏳ Abriendo login de Ollama Cloud...", fg="#d97706"
             ))
 
-            subprocess.Popen(
-                [self.ollama_cmd, "login"],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-                creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
-            )
+            if self.use_wsl:
+                subprocess.Popen(
+                    ["wsl", "ollama", "login"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+            else:
+                subprocess.Popen(
+                    [self.ollama_cmd, "login"],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
+                )
 
             self.after(0, lambda: (
                 self.model_status_lbl.config(
@@ -1038,12 +956,12 @@ class InstallWizard(tk.Tk):
             ))
 
     # ================================================================
-    # PASO 4: DEPENDENCIAS
+    # PASO 3: DEPENDENCIAS
     # ================================================================
     def _build_step_deps(self):
         tk.Label(
             self.content_frame,
-            text="Paso 4: Instalar dependencias",
+            text="Paso 3: Instalar dependencias",
             font=("Nunito", 18, "bold"),
             bg="#ffffff",
             fg="#111827",
@@ -1104,7 +1022,7 @@ class InstallWizard(tk.Tk):
             ))
             self.after(0, lambda: self.deps_progress.config(value=20))
 
-            venv_path = Path.home() / "AppData" / "Local" / "InformesCreator" / ".venv"
+            venv_path = ROOT_DIR / ".venv"
             if not venv_path.exists():
                 venv_path.parent.mkdir(parents=True, exist_ok=True)
                 subprocess.run(
@@ -1140,6 +1058,17 @@ class InstallWizard(tk.Tk):
             if proc.returncode != 0:
                 raise RuntimeError(f"pip install fallo con codigo {proc.returncode}")
 
+            # Validar que uvicorn y fastapi quedaron instalados
+            try:
+                result = subprocess.run(
+                    [str(pip_path), "show", "uvicorn"],
+                    capture_output=True, text=True, timeout=10,
+                )
+                if result.returncode != 0:
+                    raise RuntimeError("uvicorn no se encontro despues de instalar")
+            except Exception:
+                pass
+
             self.after(0, lambda: (
                 self.deps_status_lbl.config(
                     text="✅ Dependencias instaladas correctamente", fg="#16a34a"
@@ -1158,9 +1087,11 @@ class InstallWizard(tk.Tk):
             ))
 
     # ================================================================
-    # PASO 5: FINALIZAR
+    # PASO 4: FINALIZAR
     # ================================================================
     def _build_step_finish(self):
+        installed_version = _read_version()
+
         tk.Label(
             self.content_frame,
             text="¡Listo!",
@@ -1171,10 +1102,18 @@ class InstallWizard(tk.Tk):
 
         tk.Label(
             self.content_frame,
-            text="InformesCreator esta instalado y configurado.",
+            text=f"InformesCreator v{installed_version} esta instalado y configurado.",
             font=("Inter", 12),
             bg="#ffffff",
             fg="#374151",
+        ).pack(anchor=tk.CENTER, pady=5)
+
+        tk.Label(
+            self.content_frame,
+            text="Accede a http://localhost:8080 en tu navegador.",
+            font=("Inter", 11),
+            bg="#ffffff",
+            fg="#2563eb",
         ).pack(anchor=tk.CENTER, pady=5)
 
         self.create_shortcut_var = tk.BooleanVar(value=True)
@@ -1218,17 +1157,28 @@ class InstallWizard(tk.Tk):
             return pythonw_no_ext
         return self.python_cmd
 
+    def _get_venv_python(self):
+        """Devuelve el python/pythonw del .venv local, o del venv de sistema."""
+        root_venv = ROOT_DIR / ".venv" / "Scripts" / "pythonw.exe"
+        if root_venv.exists():
+            return str(root_venv)
+        system_venv = Path.home() / "AppData" / "Local" / "InformesCreator" / ".venv" / "Scripts" / "pythonw.exe"
+        if system_venv.exists():
+            return str(system_venv)
+        return self._get_pythonw()
+
     def _start_app(self):
         if self.create_shortcut_var.get():
             self._create_desktop_shortcut()
 
-        pythonw = self._get_pythonw()
+        venv_pythonw = self._get_venv_python()
         launcher_path = APP_DIR / "launcher.py"
-        if pythonw and launcher_path.exists():
+        if venv_pythonw and launcher_path.exists():
             subprocess.Popen(
-                [pythonw, str(launcher_path)],
+                [venv_pythonw, str(launcher_path)],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
+                cwd=str(ROOT_DIR),
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
             messagebox.showinfo(
@@ -1239,24 +1189,26 @@ class InstallWizard(tk.Tk):
         else:
             messagebox.showerror(
                 "Error",
-                "No se encontro launcher.py o pythonw.exe.",
+                "No se encontro el launcher o el entorno virtual.",
             )
 
     def _create_desktop_shortcut(self):
         try:
-            pythonw = self._get_pythonw()
+            venv_pythonw = self._get_venv_python()
             launcher_path = APP_DIR / "launcher.py"
-            if not pythonw or not launcher_path.exists():
+            if not venv_pythonw or not launcher_path.exists():
                 return
 
             desktop = Path.home() / "Desktop"
+            icon_path = APP_DIR / "web" / "static" / "icono.png"
             vbs_script = desktop / "CreateShortcut.vbs"
+            icon_str = str(icon_path).replace("\\", "\\\\") if icon_path.exists() else f"{venv_pythonw},0"
             vbs_content = f'''Set WshShell = CreateObject("WScript.Shell")
 Set oLink = WshShell.CreateShortcut(WshShell.SpecialFolders("Desktop") & "\\InformesCreator.lnk")
-oLink.TargetPath = "{pythonw}"
+oLink.TargetPath = "{venv_pythonw}"
 oLink.Arguments = "{launcher_path}"
 oLink.WorkingDirectory = "{launcher_path.parent}"
-oLink.IconLocation = "{pythonw},0"
+oLink.IconLocation = "{icon_str}"
 oLink.Description = "InformesCreator - Generador de Informes de Avance"
 oLink.Save
 '''

@@ -27,7 +27,7 @@ def _read_version() -> str:
         vfile = Path(__file__).resolve().parent / "version.txt"
         return vfile.read_text(encoding="utf-8").strip()
     except Exception:
-        return "1.0.1"
+        return "0.5.3"
 
 
 class LauncherApp(tk.Tk):
@@ -45,7 +45,7 @@ class LauncherApp(tk.Tk):
 
         self.ollama_cmd = None
         self.server_proc = None
-        self.model_name = "gemma4:31b-cloud"
+        self.model_name = "deepseek-v4-flash:cloud"
 
         self._build_ui()
         self.protocol("WM_DELETE_WINDOW", self._on_close)
@@ -157,9 +157,13 @@ class LauncherApp(tk.Tk):
         return None
 
     def _find_python(self):
-        venv_python = Path.home() / "AppData" / "Local" / "InformesCreator" / ".venv" / "Scripts" / "python.exe"
-        if venv_python.exists():
-            return str(venv_python)
+        app_dir = Path(__file__).resolve().parent
+        root_venv = app_dir.parent / ".venv" / "Scripts" / "python.exe"
+        if root_venv.exists():
+            return str(root_venv)
+        system_venv = Path.home() / "AppData" / "Local" / "InformesCreator" / ".venv" / "Scripts" / "python.exe"
+        if system_venv.exists():
+            return str(system_venv)
         for cmd in ["python", "py", "python3"]:
             path = shutil.which(cmd)
             if path:

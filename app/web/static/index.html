@@ -6,77 +6,297 @@
     <title>InformesCreator</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&family=Sora:wght@300;400;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=5">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script>
-      tailwind.config = {
-        corePlugins: {
-          preflight: false,
-        }
-      }
-    </script>
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css?v=6">
+    <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
     <div id="hero-bg"></div>
     <canvas id="bg-particles"></canvas>
     <div id="app">
         <!-- ====== Login Screen ====== -->
-        <div id="login-screen" class="hero-screen hidden">
-            <div class="hero-content" style="max-width: 420px;">
-                <div class="hero-icon-wrap">
-                    <i data-lucide="graduation-cap" class="hero-icon"></i>
-                </div>
-                <h1 class="hero-title">InformesCreator</h1>
-                <p class="hero-subtitle">Iniciar sesion</p>
-                <div style="width:100%;text-align:left;">
-                    <label for="login-username">Usuario:</label>
-                    <input type="text" id="login-username" placeholder="Tu usuario" style="width:100%;">
-                    <label for="login-password">Contrasena:</label>
-                    <input type="password" id="login-password" placeholder="Tu contrasena" style="width:100%;">
-                </div>
-                <button id="btn-login" class="hero-cta" style="margin-top: 16px;">Entrar</button>
-                <p id="login-error" class="hint" style="color: var(--danger); margin-top: 8px;"></p>
-                <p class="hint" style="margin-top: 12px;">Primera vez? <a href="#/register" id="link-register">Crear perfil</a></p>
+        <div id="login-screen" class="hero-screen landing-page hidden">
+            <div class="lp-header" style="margin-bottom: var(--space-4);">
+                <img src="/icono.webp" alt="Informes Creator" class="lp-logo-big" style="width: 180px;"/>
+            </div>
+            <div class="lp-tagline-wrap" style="margin-bottom: var(--space-6);">
+                <h1 class="lp-tagline-main" style="font-size: 1.5rem;">Iniciar sesión</h1>
+                <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true" style="width: 100px;">
+                    <path d="M0,6 Q25,2 50,6 Q75,10 100,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+            </div>
+            <div style="width: 100%; max-width: 320px;">
+                <form id="login-form" class="auth-form" novalidate>
+                    <div class="auth-field">
+                        <label for="login-username">Usuario</label>
+                        <input type="text" id="login-username" placeholder="Tu usuario" autocomplete="username" required>
+                        <p class="auth-field-error" id="login-username-error" role="alert"></p>
+                    </div>
+                    <div class="auth-field">
+                        <label for="login-password">Contraseña</label>
+                        <div class="auth-input-wrap">
+                            <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" minlength="4" required>
+                            <button type="button" class="btn-toggle-password" data-target="login-password" aria-label="Mostrar contraseña">
+                                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                            </button>
+                        </div>
+                        <p class="auth-field-error" id="login-password-error" role="alert"></p>
+                    </div>
+                    <button type="submit" id="btn-login" class="hero-cta" style="width: 100%; justify-content: center;">Entrar</button>
+                    <p id="login-error" class="auth-form-error" role="alert"></p>
+                </form>
+                <p class="hint" style="margin-top: 16px;">¿Primera vez? <a href="#/register" id="link-register" style="color: var(--accent); font-weight: 600;">Crear perfil</a></p>
             </div>
         </div>
 
         <!-- ====== Register Screen ====== -->
-        <div id="register-screen" class="hero-screen hidden">
-            <div class="hero-content" style="max-width: 420px;">
-                <div class="hero-icon-wrap">
-                    <i data-lucide="graduation-cap" class="hero-icon"></i>
-                </div>
-                <h1 class="hero-title">InformesCreator</h1>
-                <p class="hero-subtitle">Crear perfil</p>
-                <div style="width:100%;text-align:left;">
-                    <label for="reg-username">Usuario:</label>
-                    <input type="text" id="reg-username" placeholder="Elegi un usuario" style="width:100%;">
-                    <label for="reg-display-name">Nombre completo (opcional):</label>
-                    <input type="text" id="reg-display-name" placeholder="Ej: Marta Lopez" style="width:100%;">
-                    <label for="reg-password">Contrasena:</label>
-                    <input type="password" id="reg-password" placeholder="Elegi una contrasena" style="width:100%;">
-                    <label for="reg-password-confirm">Repeti la contrasena:</label>
-                    <input type="password" id="reg-password-confirm" placeholder="Repeti la contrasena" style="width:100%;">
-                </div>
-                <button id="btn-register" class="hero-cta" style="margin-top: 16px;">Crear perfil</button>
-                <p id="register-error" class="hint" style="color: var(--danger); margin-top: 8px;"></p>
-                <p class="hint" style="margin-top: 12px;"><a href="#/login" id="link-login">Ya tengo perfil</a></p>
+        <div id="register-screen" class="hero-screen landing-page hidden">
+            <div class="lp-header" style="margin-bottom: var(--space-4);">
+                <img src="/icono.webp" alt="Informes Creator" class="lp-logo-big" style="width: 180px;"/>
+            </div>
+            <div class="lp-tagline-wrap" style="margin-bottom: var(--space-6);">
+                <h1 class="lp-tagline-main" style="font-size: 1.5rem;">Crear perfil</h1>
+                <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true" style="width: 100px;">
+                    <path d="M0,6 Q25,2 50,6 Q75,10 100,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+            </div>
+            <div style="width: 100%; max-width: 320px;">
+                <form id="register-form" class="auth-form" novalidate>
+                    <div class="auth-field">
+                        <label for="reg-username">Usuario</label>
+                        <input type="text" id="reg-username" placeholder="Elegí un usuario" autocomplete="username" required>
+                        <p class="auth-field-error" id="reg-username-error" role="alert"></p>
+                    </div>
+                    <div class="auth-field">
+                        <label for="reg-display-name">Nombre completo (opcional)</label>
+                        <input type="text" id="reg-display-name" placeholder="Ej: Marta Lopez" autocomplete="name">
+                    </div>
+                    <div class="auth-field">
+                        <label for="reg-password">Contraseña</label>
+                        <div class="auth-input-wrap">
+                            <input type="password" id="reg-password" placeholder="Elegí una contraseña" autocomplete="new-password" minlength="4" required>
+                            <button type="button" class="btn-toggle-password" data-target="reg-password" aria-label="Mostrar contraseña">
+                                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                            </button>
+                        </div>
+                        <p class="auth-field-error" id="reg-password-error" role="alert"></p>
+                    </div>
+                    <div class="auth-field">
+                        <label for="reg-password-confirm">Repetí la contraseña</label>
+                        <div class="auth-input-wrap">
+                            <input type="password" id="reg-password-confirm" placeholder="Repetí la contraseña" autocomplete="new-password" minlength="4" required>
+                            <button type="button" class="btn-toggle-password" data-target="reg-password-confirm" aria-label="Mostrar contraseña">
+                                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                            </button>
+                        </div>
+                        <p class="auth-field-error" id="reg-password-confirm-error" role="alert"></p>
+                    </div>
+                    <button type="submit" id="btn-register" class="hero-cta" style="width: 100%; justify-content: center;">Crear perfil</button>
+                    <p id="register-error" class="auth-form-error" role="alert"></p>
+                </form>
+                <p class="hint" style="margin-top: 16px;"><a href="#/login" id="link-login" style="color: var(--accent); font-weight: 600;">Ya tengo perfil</a></p>
             </div>
         </div>
 
         <!-- ====== Hero Screen ====== -->
         <div id="hero-screen" class="hero-screen landing-page">
             <div class="lp-header">
-                <img src="/icono.png" alt="Informes Creator" class="lp-logo-big"/>
+                <img src="/icono.webp" alt="Informes Creator" class="lp-logo-big"/>
             </div>
-            <div class="lp-hero-center">
-                <img src="/ilustracion.png" alt="Ilustracion" class="lp-hero-illustration"/>
+            <div class="lp-tagline-wrap">
+                <p class="lp-tagline-main">Tu asistente para escribir informes</p>
+                <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
+                    <path d="M0,6 Q35,2 70,6 Q105,10 140,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                </svg>
+                <p class="lp-tagline-sub">Sin estres, a tu ritmo, en tu aula</p>
             </div>
             <div class="lp-hero-buttons">
-                <button class="lp-btn-primary" id="btn-hero-start" style="font-size:18px;padding:14px 40px;">Comenzar</button>
+                <!-- impeccable-variants-start a34dad3a -->
+                <div data-impeccable-variants="a34dad3a" data-impeccable-variant-count="3" style="display: contents">
+                  <!-- Original (hidden; variant 1 is active) -->
+                  <div data-impeccable-variant="original" style="display: none">
+                    <button class="lp-btn-primary">
+                        Comenzar
+                        <i data-lucide="arrow-right" class="lp-btn-icon"></i>
+                    </button>
+                  </div>
+                  <!-- Variants: insert below this line -->
+                  <style data-impeccable-css="a34dad3a">
+                    @scope ([data-impeccable-variant="1"]) {
+                      :scope > .lp-btn--tab {
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 10px;
+                        width: 100%;
+                        padding: 14px 28px;
+                        font-family: var(--font-heading);
+                        font-size: 1.1rem;
+                        font-weight: 700;
+                        letter-spacing: -0.01em;
+                        color: var(--accent);
+                        background: var(--surface);
+                        border: 2px solid var(--accent);
+                        border-radius: var(--radius-md);
+                        cursor: pointer;
+                        position: relative;
+                        transition: background var(--transition-base), transform var(--transition-base), box-shadow var(--transition-base);
+                      }
+                      :scope > .lp-btn--tab::before {
+                        content: "";
+                        position: absolute;
+                        top: -8px;
+                        left: 12px;
+                        right: 12px;
+                        height: 1px;
+                        background: repeating-linear-gradient(90deg, var(--border-default) 0, var(--border-default) 4px, transparent 4px, transparent 8px);
+                        opacity: 0;
+                        transition: opacity var(--transition-base);
+                      }
+                      :scope > .lp-btn--tab:hover {
+                        background: var(--accent);
+                        color: #fff;
+                        transform: translateY(-2px);
+                        box-shadow: var(--shadow-button-hover);
+                      }
+                      :scope > .lp-btn--tab:hover::before {
+                        opacity: 1;
+                      }
+                      :scope > .lp-btn--tab:active {
+                        transform: translateY(0);
+                        box-shadow: var(--shadow-button);
+                      }
+                      :scope > .lp-btn--tab .lp-btn-icon {
+                        transition: transform var(--transition-base);
+                      }
+                      :scope > .lp-btn--tab:hover .lp-btn-icon {
+                        transform: translateX(3px);
+                      }
+                    }
+                    @scope ([data-impeccable-variant="2"]) {
+                      :scope > .lp-btn--annotation {
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 6px;
+                        padding: 8px 16px 8px 0;
+                        font-family: var(--font-body);
+                        font-size: 0.9375rem;
+                        font-weight: 500;
+                        font-style: italic;
+                        color: var(--accent);
+                        background: none;
+                        border: none;
+                        border-bottom: 2px solid transparent;
+                        cursor: pointer;
+                        position: relative;
+                        transition: border-color var(--transition-fast), color var(--transition-fast);
+                      }
+                      :scope > .lp-btn--annotation::after {
+                        content: "~";
+                        position: absolute;
+                        right: -14px;
+                        top: 50%;
+                        transform: translateY(-50%);
+                        color: var(--tertiary);
+                        font-size: 1.2rem;
+                        font-weight: 700;
+                        opacity: 0;
+                        transition: opacity var(--transition-fast), right var(--transition-base);
+                      }
+                      :scope > .lp-btn--annotation:hover {
+                        border-bottom-color: var(--accent);
+                        color: var(--accent-hover);
+                        padding-right: 20px;
+                      }
+                      :scope > .lp-btn--annotation:hover::after {
+                        opacity: 1;
+                        right: -6px;
+                      }
+                      :scope > .lp-btn--annotation .lp-btn-icon {
+                        width: 16px;
+                        height: 16px;
+                        transition: transform var(--transition-fast);
+                      }
+                      :scope > .lp-btn--annotation:hover .lp-btn-icon {
+                        transform: rotate(-12deg);
+                      }
+                    }
+                    @scope ([data-impeccable-variant="3"]) {
+                      :scope > .lp-btn--stamp {
+                        display: flex;
+                        flex-direction: column;
+                        align-items: center;
+                        justify-content: center;
+                        gap: 2px;
+                        padding: 16px 32px 14px;
+                        font-family: var(--font-heading);
+                        font-size: 1rem;
+                        font-weight: 800;
+                        letter-spacing: 0.04em;
+                        text-transform: uppercase;
+                        color: var(--surface);
+                        background: var(--accent);
+                        border: 2px solid var(--accent);
+                        border-radius: var(--radius-pill);
+                        cursor: pointer;
+                        position: relative;
+                        transform: rotate(-1.5deg);
+                        box-shadow:
+                          0 2px 0 0 var(--accent-hover),
+                          0 4px 12px rgba(37, 99, 235, 0.25);
+                        transition: transform var(--transition-bounce), box-shadow var(--transition-bounce);
+                      }
+                      :scope > .lp-btn--stamp::before {
+                        content: "";
+                        position: absolute;
+                        inset: 3px;
+                        border-radius: inherit;
+                        border: 1.5px dashed rgba(255, 255, 255, 0.3);
+                        pointer-events: none;
+                      }
+                      :scope > .lp-btn--stamp:hover {
+                        transform: rotate(0deg) scale(1.04);
+                        box-shadow:
+                          0 3px 0 0 var(--accent-hover),
+                          0 8px 24px rgba(37, 99, 235, 0.35);
+                      }
+                      :scope > .lp-btn--stamp:active {
+                        transform: rotate(0deg) scale(0.96);
+                        box-shadow: 0 1px 0 0 var(--accent-hover);
+                      }
+                      :scope > .lp-btn--stamp .lp-btn-icon {
+                        width: 20px;
+                        height: 20px;
+                        margin-top: 1px;
+                        transition: transform var(--transition-base);
+                      }
+                      :scope > .lp-btn--stamp:hover .lp-btn-icon {
+                        transform: translateY(2px);
+                      }
+                    }
+                  </style>
+                  <div data-impeccable-variant="1">
+                    <button class="lp-btn--tab" id="btn-hero-start">
+                      Comenzar
+                      <i data-lucide="arrow-right" class="lp-btn-icon"></i>
+                    </button>
+                  </div>
+                  <div data-impeccable-variant="2" style="display: none">
+                    <button class="lp-btn--annotation">
+                      Comenzar
+                      <i data-lucide="arrow-right" class="lp-btn-icon"></i>
+                    </button>
+                  </div>
+                  <div data-impeccable-variant="3" style="display: none">
+                    <button class="lp-btn--stamp">
+                      Comenzar
+                      <i data-lucide="arrow-right" class="lp-btn-icon"></i>
+                    </button>
+                  </div>
+                </div>
+                <!-- impeccable-variants-end a34dad3a -->
             </div>
+            <p class="lp-info-hint">Te acompanamos en cada paso</p>
         </div>
 
         <!-- ====== Overlay: Verificacion Inicial ====== -->
@@ -86,7 +306,7 @@
                 <p class="onboarding-subtitle">Generador de Informes de Avance</p>
 
                 <div id="onboarding-ollama" class="onboarding-section">
-                    <h3>Verificando Ollama...</h3>
+                    <h2>Verificando Ollama...</h2>
                     <div id="onboarding-ollama-status" class="status-box">
                         <p>Verificando estado de Ollama...</p>
                     </div>
@@ -94,7 +314,7 @@
                 </div>
 
                 <div id="onboarding-folder" class="onboarding-section">
-                    <h3>Carpeta de archivos</h3>
+                    <h2>Carpeta de archivos</h2>
                     <div class="folder-option">
                         <label><input type="radio" name="folder-option" value="existing" checked> Ya tengo la carpeta CURSOS con mis alumnos</label>
                     </div>
@@ -128,8 +348,12 @@
         </div>
 
         <!-- ====== Header Global ====== -->
-        <header class="hidden">
+        <header class="app-header hidden">
             <div class="header-left">
+                <button id="btn-mobile-sidebar-toggle" class="btn-ghost btn-sm mobile-sidebar-btn" aria-label="Mostrar cursos" style="display:none;">
+                    <i data-lucide="menu" style="width:20px;height:20px;"></i>
+                </button>
+                <img src="/icono.webp" alt="Informes Creator" style="height: 32px; width: auto; object-fit: contain;" />
                 <h1>InformesCreator</h1>
             </div>
             <div class="header-right">
@@ -174,38 +398,41 @@
             </div>
         </header>
 
-        <!-- ====== Menu de Cursos (overlay) ====== -->
-        <div id="courses-menu" class="hidden">
-            <div class="courses-menu-overlay">
-                <div class="courses-menu-panel">
-                    <div class="courses-menu-header">
-                        <h2>Mis Cursos</h2>
-                        <button id="btn-close-courses-menu" class="btn-ghost btn-sm">
-                            <i data-lucide="x" style="width:18px;height:18px;"></i>
-                        </button>
-                    </div>
-                    <p class="hint">Selecciona un curso para continuar con los informes.</p>
-                    <div id="courses-grid" class="courses-grid"></div>
-
-                    <div id="create-course-section" class="hidden">
-                        <h3>Crear nuevo curso</h3>
-                        <label for="new-course-name-step3">Nombre del curso:</label>
-                        <input type="text" id="new-course-name-step3" placeholder="Ej: 1ro B ESN5">
-                        <label for="new-students-list-step3">Lista de alumnos (uno por linea):</label>
-                        <textarea id="new-students-list-step3" rows="6" placeholder="Ej:&#10;Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
-                        <div class="obs-actions">
-                            <button id="btn-create-course-step3" class="btn-primary">Crear curso</button>
-                            <button id="btn-cancel-create-course" class="btn-secondary">Cancelar</button>
-                        </div>
-                    </div>
-                    <button id="btn-show-create-course" class="btn-primary">
-                        <i data-lucide="plus" style="width:18px;height:18px;"></i> Crear nuevo curso
+        <!-- ====== Sidebar + Main Layout ====== -->
+        <div id="layout-body" class="hidden">
+            <!-- Sidebar izquierdo: lista de cursos -->
+            <aside id="sidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <h3 class="sidebar-title">Mis Cursos</h3>
+                    <button id="btn-sidebar-close" class="btn-ghost btn-sm sidebar-close-btn" aria-label="Cerrar sidebar" style="display:none;">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
                     </button>
                 </div>
-            </div>
-        </div>
+                <nav id="sidebar-courses-list" class="sidebar-courses-list" role="navigation" aria-label="Cursos">
+                </nav>
+                <div class="sidebar-footer">
+                    <button id="btn-sidebar-new-course" class="btn-secondary btn-sm" style="width:100%;margin-top:0;">
+                        <i data-lucide="plus" style="width:16px;height:16px;"></i> Nuevo curso
+                    </button>
+                    <div id="sidebar-create-course" class="sidebar-create-course hidden">
+                        <h4>Nuevo curso</h4>
+                        <label for="sidebar-new-course-name">Nombre del curso:</label>
+                        <input type="text" id="sidebar-new-course-name" placeholder="Ej: 1ro B ESN5">
+                        <label for="sidebar-new-students-list">Lista de alumnos (uno por linea):</label>
+                        <textarea id="sidebar-new-students-list" rows="5" placeholder="Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
+                        <div class="sidebar-create-actions">
+                            <button id="btn-sidebar-create-confirm" class="btn-primary btn-sm">Crear</button>
+                            <button id="btn-sidebar-create-cancel" class="btn-secondary btn-sm">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+            </aside>
 
-        <!-- ====== Pantalla de Cuestionarios ====== -->
+            <main id="main-content">
+
+                <div id="courses-grid" class="hidden"></div>
+
+        <!-- ====== Cuestionarios ====== -->
         <div id="questionnaires-screen" class="hidden">
             <div class="questionnaires-container">
                 <div class="questionnaires-header">
@@ -254,29 +481,44 @@
         </div>
 
         <!-- ====== Dashboard del Curso (pantalla principal) ====== -->
-        <main id="course-view" class="hidden">
+        <div id="course-view" class="hidden paper-sheet">
             <div class="course-view-header">
                 <h2 id="course-view-title">Curso</h2>
-                <p class="hint">Resumen de alumnos y progreso del curso.</p>
+                <p class="hint">Selecciona un alumno para empezar a escribir su informe.</p>
             </div>
 
-            <div id="dashboard-stats" class="summary-box"></div>
-            <div id="dashboard-questionnaire-selector" class="summary-box" style="margin-top: var(--space-4); display: flex; align-items: center; gap: var(--space-3);">
-                <label for="active-questionnaire" style="font-weight: 600; font-size: 0.875rem; color: var(--text-secondary); white-space: nowrap;">Cuestionario activo:</label>
-                <select id="active-questionnaire" style="flex: 1; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); font-size: 0.875rem;">
+            <div style="display: flex; gap: var(--space-4); margin: var(--space-4) 0; flex-wrap: wrap;">
+                <div id="dashboard-stats" class="summary-box" style="margin: 0; flex: 2; min-width: 280px;"></div>
+                <button id="btn-toggle-questionnaire" class="btn-ghost btn-sm" style="margin: 0; align-self: center;" aria-expanded="false">Cuestionario activo <i data-lucide="chevron-down" style="width:14px;height:14px;"></i></button>
+            </div>
+            <div id="dashboard-questionnaire-selector" class="summary-box hidden" style="margin: 0 0 var(--space-4) 0; display: flex; flex-direction: column; gap: var(--space-2);">
+                <label for="active-questionnaire" style="font-weight: 600; font-size: 0.875rem; color: var(--text-secondary); margin: 0;">Elegi el cuestionario para este curso:</label>
+                <select id="active-questionnaire" style="width: 100%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); font-size: 0.875rem;">
                     <option value="">Predeterminado (19 preguntas)</option>
                 </select>
             </div>
+            <div class="student-filter" style="margin-bottom: var(--space-3);">
+                <input type="text" id="student-search" class="student-search-input" placeholder="Buscar alumno por nombre..." style="width: 100%;">
+            </div>
             <div id="dashboard-students-list" class="students-list list-container"></div>
 
+            <div id="dashboard-contents-editor" class="hidden" style="margin: var(--space-4) 0;">
+                <h3>Contenidos del curso</h3>
+                <textarea id="course-contents" rows="4" placeholder="Present simple&#10;Past simple&#10;Vocabulary"></textarea>
+                <div style="margin-top: var(--space-3);">
+                    <button id="btn-save-contents-dashboard" class="btn-primary">Guardar contenidos</button>
+                </div>
+            </div>
+
             <div class="dashboard-actions">
+                <button id="btn-edit-contents-dashboard" class="btn-secondary">Editar contenidos del curso</button>
                 <button id="btn-download-all" class="btn-primary">Descargar informe completo del curso</button>
                 <button id="btn-back-to-menu" class="btn-secondary">Volver a Mis Cursos</button>
             </div>
-        </main>
+        </div>
 
         <!-- ====== Wizard: 3 Pasos ====== -->
-        <main id="wizard" class="hidden">
+        <div id="wizard" class="hidden">
             <!-- Barra de progreso -->
             <nav id="progress-bar">
                 <div class="step active" data-step="1" title="Cuestionario"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
@@ -292,28 +534,14 @@
                     <div id="sticky-student-counter" class="sticky-student-counter"></div>
                 </div>
 
-                <!-- Contenidos del curso -->
-                <div id="contents-section" class="question-section contents-section">
-                    <h3>Contenidos del Curso</h3>
-                    <div id="contents-edit-mode">
-                        <textarea id="course-contents" rows="4" placeholder="Present simple&#10;Past simple&#10;Vocabulary"></textarea>
-                        <div class="obs-actions" style="margin-top: var(--space-3);">
-                            <button id="btn-save-contents" class="btn-primary">Guardar contenidos</button>
-                        </div>
-                    </div>
-                    <div id="contents-view-mode" class="hidden">
-                        <div id="contents-display" class="report-box" style="max-height: none; padding: var(--space-4); font-size: 0.875rem;"></div>
-                        <div class="obs-actions" style="margin-top: var(--space-3);">
-                            <button id="btn-edit-contents" class="btn-secondary">Editar contenidos del curso</button>
-                        </div>
-                    </div>
+                <div id="wizard-substep-label" style="text-align:center;margin-bottom:12px;font-size:0.8125rem;color:var(--text-muted);font-weight:500;">
+                    Paso 1a: Observaciones y asistencia
                 </div>
 
                 <div class="question-progress-bar">
                     <div id="question-progress-fill" class="question-progress-fill" style="width: 0%"></div>
                 </div>
                 <div id="question-counter" class="question-counter">Pregunta 1 / 19</div>
-                <button id="btn-toggle-contents" class="btn-ghost btn-sm" style="display:block;margin:0 auto 8px;">Editar contenidos del curso</button>
 
                 <!-- Panel de observaciones -->
                 <div id="observations-panel" class="hidden">
@@ -373,13 +601,14 @@
                     <div id="question-title-label" class="question-title-label"></div>
                     <div id="current-question-text" class="question-text-large"></div>
                     <div id="current-question-options" class="answer-buttons"></div>
-                    <div id="question-skip-text" class="question-skip-text">Omitir pregunta</div>
+                    <button id="question-skip-text" class="skip-btn">Omitir esta pregunta</button>
                 </div>
 
                 <div class="wizard-footer">
                     <button id="prev-question-btn" class="icon-btn" title="Pregunta anterior"><i data-lucide="arrow-left"></i></button>
                     <button id="btn-save-questionnaire" class="btn-secondary btn-sm" title="Guardar y salir"><i data-lucide="save" style="width:16px;height:16px;"></i> Guardar progreso</button>
                     <button id="btn-skip-all-questions" class="btn-secondary btn-sm">Generar solo con observaciones</button>
+                    <button id="btn-exit-without-save" class="btn-ghost btn-sm">Salir sin guardar</button>
                 </div>
 
                 <!-- Nota: El panel de asistencia fue movido al panel de observaciones -->
@@ -399,7 +628,10 @@
 
                 <h3>Variante del Informe</h3>
                 <div id="variants-list"></div>
-                <button id="btn-step-2" class="btn-primary">Generar Informe</button>
+                <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+                    <button id="btn-step-2" class="btn-primary">Generar Informe</button>
+                    <button id="btn-back-to-questionnaire" class="btn-secondary">Volver al cuestionario</button>
+                </div>
             </section>
 
             <!-- Paso 3: Informe Generado -->
@@ -409,48 +641,79 @@
                     <p>Generando informe...</p>
                 </div>
                 <div id="report-actions" class="hidden">
-                    <button id="btn-download" class="btn-primary icon-btn" title="Descargar informe"><i data-lucide="download" style="width:18px;height:18px;"></i></button>
-                    <button id="btn-modify-report" class="btn-secondary icon-btn" title="Modificar informe"><i data-lucide="sliders-horizontal" style="width:18px;height:18px;"></i></button>
-                    <button id="btn-next-student" class="btn-primary icon-btn" title="Siguiente alumno"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i></button>
-                    <button id="btn-go-dashboard" class="btn-secondary icon-btn" title="Volver al curso"><i data-lucide="undo-2" style="width:18px;height:18px;"></i></button>
-                    <button id="btn-finish" class="btn-secondary icon-btn" title="Finalizar"><i data-lucide="check" style="width:18px;height:18px;"></i></button>
+                    <button id="btn-download" class="btn-primary"><i data-lucide="download" style="width:18px;height:18px;"></i> Descargar</button>
+                    <button id="btn-modify-report" class="btn-secondary"><i data-lucide="sliders-horizontal" style="width:18px;height:18px;"></i> Modificar</button>
+                    <button id="btn-next-student" class="btn-primary"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i> Siguiente</button>
+                    <button id="btn-go-dashboard" class="btn-secondary"><i data-lucide="undo-2" style="width:18px;height:18px;"></i> Dashboard</button>
+                    <button id="btn-finish" class="btn-secondary"><i data-lucide="check" style="width:18px;height:18px;"></i> Finalizar</button>
                 </div>
                 <div id="customization-panel" class="hidden">
                     <div class="customization-card">
-                        <h4>Personalizar informe</h4>
+                        <h3>Ajustar el informe</h3>
+                        <p class="hint" style="margin-bottom:12px;">Describi que queres cambiar y regenera el informe.</p>
                         <div class="length-buttons">
-                            <button class="btn-secondary btn-sm length-btn" data-length="C">Breve (~50-80)</button>
-                            <button class="btn-secondary btn-sm length-btn" data-length="A">Formal (~100-150)</button>
-                            <button class="btn-secondary btn-sm length-btn" data-length="B">Detallado (~200-250)</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="C">Un parrafo</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="A">Media carilla</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="B">Una carilla</button>
                         </div>
-                        <div class="sliders-group">
-                            <div class="slider-row">
-                                <label>Formalidad</label>
-                                <input type="range" id="slider-formality" min="0" max="100" value="50">
-                                <span class="slider-labels"><span>Casual</span><span>Formal</span></span>
-                            </div>
-                            <div class="slider-row">
-                                <label>Empatía</label>
-                                <input type="range" id="slider-empathy" min="0" max="100" value="50">
-                                <span class="slider-labels"><span>Objetivo</span><span>Empático</span></span>
-                            </div>
-                            <div class="slider-row">
-                                <label>Detalle</label>
-                                <input type="range" id="slider-detail" min="0" max="100" value="50">
-                                <span class="slider-labels"><span>Conciso</span><span>Desarrollado</span></span>
-                            </div>
-                            <div class="slider-row">
-                                <label>Naturalidad</label>
-                                <input type="range" id="slider-naturalness" min="0" max="100" value="50">
-                                <span class="slider-labels"><span>Estructurado</span><span>Conversacional</span></span>
+                        <textarea id="customization-text" class="customization-textarea" placeholder="Ej: que sea mas empatico, mas corto, que mencione su participacion en clase..."></textarea>
+                        <button id="btn-toggle-advanced" class="btn-ghost btn-sm" style="margin:8px 0;">Ajustes avanzados</button>
+                        <div id="advanced-sliders" class="hidden">
+                            <div class="sliders-group">
+                                <div class="slider-row">
+                                    <label>Formalidad</label>
+                                    <input type="range" id="slider-formality" min="0" max="100" value="50">
+                                    <span class="slider-labels"><span>Casual</span><span>Formal</span></span>
+                                </div>
+                                <div class="slider-row">
+                                    <label>Empatia</label>
+                                    <input type="range" id="slider-empathy" min="0" max="100" value="50">
+                                    <span class="slider-labels"><span>Objetivo</span><span>Empatico</span></span>
+                                </div>
+                                <div class="slider-row">
+                                    <label>Detalle</label>
+                                    <input type="range" id="slider-detail" min="0" max="100" value="50">
+                                    <span class="slider-labels"><span>Conciso</span><span>Desarrollado</span></span>
+                                </div>
+                                <div class="slider-row">
+                                    <label>Naturalidad</label>
+                                    <input type="range" id="slider-naturalness" min="0" max="100" value="50">
+                                    <span class="slider-labels"><span>Estructurado</span><span>Conversacional</span></span>
+                                </div>
                             </div>
                         </div>
-                        <textarea id="customization-text" class="customization-textarea" placeholder="Ej: más empático, usa metáforas, tono más formal..."></textarea>
-                        <button id="btn-regenerate-custom" class="btn-primary"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i> Regenerar con personalización</button>
+                        <button id="btn-regenerate-custom" class="btn-primary"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i> Regenerar</button>
                     </div>
                 </div>
             </section>
-        </main>
+        </div><!-- /#wizard -->
+            </main><!-- /#main-content -->
+
+        </div><!-- /#layout-body -->
+
+        <!-- ====== Drawer de Alumno ====== -->
+        <div id="student-drawer" class="student-drawer hidden" role="dialog" aria-label="Detalle del alumno" aria-modal="true">
+            <div class="student-drawer-overlay" id="student-drawer-overlay"></div>
+            <div class="student-drawer-panel" id="student-drawer-panel">
+                <div class="student-drawer-header">
+                    <div class="student-drawer-nav">
+                        <button id="btn-drawer-prev-student" class="btn-ghost btn-sm icon-btn" aria-label="Alumno anterior" title="Alumno anterior">
+                            <i data-lucide="chevron-left" style="width:18px;height:18px;"></i>
+                        </button>
+                    </div>
+                    <h3 id="student-drawer-name" class="student-drawer-name"></h3>
+                    <div class="student-drawer-nav">
+                        <button id="btn-drawer-next-student" class="btn-ghost btn-sm icon-btn" aria-label="Siguiente alumno" title="Siguiente alumno">
+                            <i data-lucide="chevron-right" style="width:18px;height:18px;"></i>
+                        </button>
+                        <button id="btn-close-drawer" class="btn-ghost btn-sm" aria-label="Cerrar detalle">
+                            <i data-lucide="x" style="width:18px;height:18px;"></i>
+                        </button>
+                    </div>
+                </div>
+                <div id="student-drawer-content" class="student-drawer-content"></div>
+            </div>
+        </div>
 
         <!-- ====== Loading ====== -->
         <div id="loading" class="hidden">
@@ -474,32 +737,96 @@
         </div>
     </div>
 
-    <!-- ====== Modal de Perfil ====== -->
+    <!-- ====== Modal de Perfil / Ajustes ====== -->
     <div id="profile-modal" class="help-modal hidden">
         <div class="help-overlay"></div>
-        <div class="help-panel" style="max-width: 420px;">
+        <div class="help-panel" style="max-width: 460px;">
             <div class="help-header">
-                <h3>Perfil</h3>
+                <h3>Mi Perfil</h3>
                 <button id="btn-close-profile" class="btn-ghost btn-sm">
                     <i data-lucide="x" style="width:18px;height:18px;"></i>
                 </button>
             </div>
             <div id="profile-content">
-                <p><strong>Usuario:</strong> <span id="profile-username"></span></p>
-                <p style="margin-top: 8px;"><strong>Carpeta actual:</strong></p>
-                <p id="profile-folder-path" class="hint" style="word-break: break-all;"></p>
-                <div style="margin-top: 16px; display: flex; gap: 8px; flex-direction: column;">
-                    <button id="btn-change-folder" class="btn-secondary btn-sm" style="justify-content: center;">
-                        <i data-lucide="folder-search" style="width:16px;height:16px;"></i> Cambiar carpeta
+                <!-- Avatar & Username -->
+                <div class="profile-avatar-section">
+                    <div class="profile-avatar">
+                        <i data-lucide="user" style="width:32px;height:32px;"></i>
+                    </div>
+                    <div class="profile-user-info">
+                        <span class="profile-user-label">Usuario</span>
+                        <span id="profile-username" class="profile-user-value"></span>
+                    </div>
+                </div>
+
+                <!-- Editable Fields -->
+                <form id="profile-edit-form" class="auth-form" novalidate>
+                    <div class="profile-section-title">
+                        <i data-lucide="pencil" style="width:14px;height:14px;"></i>
+                        Datos personales
+                    </div>
+                    <div class="auth-field">
+                        <label for="profile-display-name">Nombre para mostrar</label>
+                        <input type="text" id="profile-display-name" placeholder="Ej: Marta Lopez">
+                    </div>
+
+                    <div class="profile-section-title" style="margin-top: var(--space-4);">
+                        <i data-lucide="lock" style="width:14px;height:14px;"></i>
+                        Cambiar contrasena
+                    </div>
+                    <div class="auth-field">
+                        <label for="profile-new-password">Nueva contrasena</label>
+                        <input type="password" id="profile-new-password" placeholder="Dejar vacio para no cambiar" minlength="4">
+                        <p class="auth-field-error" id="profile-password-error" role="alert"></p>
+                    </div>
+                    <div class="auth-field">
+                        <label for="profile-confirm-password">Repetir nueva contrasena</label>
+                        <input type="password" id="profile-confirm-password" placeholder="Repetir nueva contrasena" minlength="4">
+                        <p class="auth-field-error" id="profile-confirm-password-error" role="alert"></p>
+                    </div>
+
+                    <button type="submit" id="btn-save-profile" class="btn-primary" style="width:100%; margin-top: var(--space-3); justify-content: center;">
+                        <i data-lucide="save" style="width:16px;height:16px;"></i> Guardar cambios
                     </button>
-                    <button id="btn-logout" class="btn-danger btn-sm" style="justify-content: center;">
-                        <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesion
+                    <p id="profile-save-error" class="auth-form-error" role="alert"></p>
+                </form>
+
+                <!-- Folder Section -->
+                <div class="profile-divider"></div>
+                <div class="profile-section-title">
+                    <i data-lucide="folder" style="width:14px;height:14px;"></i>
+                    Carpeta de trabajo
+                </div>
+                <div class="profile-folder-box">
+                    <span id="profile-folder-path" class="profile-folder-text">Sin configurar</span>
+                    <button id="btn-change-folder" class="btn-secondary btn-sm">
+                        <i data-lucide="folder-search" style="width:14px;height:14px;"></i> Cambiar
                     </button>
                 </div>
+
+                <!-- Logout -->
+                <div class="profile-divider"></div>
+                <button id="btn-logout" class="btn-danger" style="width:100%; justify-content: center;">
+                    <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesion
+                </button>
             </div>
         </div>
     </div>
 
-    <script src="/js/app.js?v=4"></script>
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-relevant="additions"></div>
+
+    <!-- Confirmation dialog -->
+    <div id="confirm-overlay" class="confirm-overlay hidden">
+        <div class="confirm-card">
+            <p id="confirm-message" class="confirm-message"></p>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" class="btn-secondary btn-sm">Cancelar</button>
+                <button id="confirm-ok" class="btn-primary btn-sm">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/js/app.js?v=7"></script>
 </body>
 </html>
