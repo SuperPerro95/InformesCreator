@@ -470,13 +470,13 @@
                 </div>
 
                 <div class="editor-fields">
-                    <label>Nombre</label>
+                        <label for="qe-name">Nombre</label>
                     <input type="text" id="qe-name" placeholder="Nombre del cuestionario">
                 </div>
 
                 <div class="qe-editor-layout">
                     <div class="qe-editor-pane">
-                        <label>Editor Markdown</label>
+                        <label for="qe-textarea">Editor Markdown</label>
                         <textarea id="qe-textarea" rows="20" placeholder="Pega aqui tu cuestionario en formato markdown..."></textarea>
                         <p class="hint" style="margin-top: var(--space-2); font-size: 0.75rem;">
                             Formato: <code># Titulo</code>, <code>&gt; section: valoracion</code>, <code>&gt; type: frequency_4</code>, texto y opciones con <code>- </code>.
@@ -520,24 +520,25 @@
         <!-- ====== Wizard: 3 Pasos ====== -->
         <div id="wizard" class="hidden">
             <!-- Sticky student header (persiste entre pasos 1-2) -->
-            <div id="questionnaire-sticky-header" class="sticky-header">
-                <div id="sticky-student-name" class="sticky-student-name"></div>
-                <div id="sticky-student-counter" class="sticky-student-counter"></div>
+                <div id="questionnaire-sticky-header" class="sticky-header" role="region" aria-label="Informacion del alumno actual">
+                <div id="sticky-student-name" class="sticky-student-name" aria-live="polite"></div>
+                <div id="sticky-student-counter" class="sticky-student-counter" aria-live="polite"></div>
             </div>
 
             <!-- Barra de progreso -->
-            <nav id="progress-bar">
-                <div class="step active" data-step="1" title="Cuestionario"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
-                <div class="step" data-step="2" title="Configuracion"><i data-lucide="settings" class="step-icon"></i><span class="step-label">Configuracion</span></div>
-                <div class="step" data-step="3" title="Informe"><i data-lucide="scroll-text" class="step-icon"></i><span class="step-label">Informe</span></div>
+            <nav id="progress-bar" role="tablist" aria-label="Pasos del asistente">
+                <div class="step active" data-step="1" role="tab" aria-selected="true" tabindex="0" aria-label="Paso 1: Cuestionario" aria-controls="step-1"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
+                <div class="step" data-step="2" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 2: Configuracion" aria-controls="step-2"><i data-lucide="settings" class="step-icon"></i><span class="step-label">Configuracion</span></div>
+                <div class="step" data-step="3" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 3: Informe" aria-controls="step-3"><i data-lucide="scroll-text" class="step-icon"></i><span class="step-label">Informe</span></div>
             </nav>
 
             <!-- Paso 1: Cuestionario -->
-            <section id="step-1" class="step-content active">
+            <section id="step-1" class="step-content active" role="tabpanel" aria-labelledby="progress-bar">
+                <div id="step-announcement" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
                 <div id="wizard-substep-label" class="wizard-substep-label" role="status" aria-live="polite">Paso 1a: Observaciones y asistencia</div>
 
-                <div id="question-counter" class="question-counter">Pregunta 1 / 19</div>
+                <div id="question-counter" class="question-counter" aria-live="polite">Pregunta 1 / 19</div>
                 <div class="question-progress-bar">
                     <div id="question-progress-fill" class="question-progress-fill" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso del cuestionario"></div>
                 </div>
@@ -569,7 +570,7 @@
                     </div>
 
                     <!-- Resumen de asistencia -->
-                    <div id="obs-attendance-summary" style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-md); border: 2px solid var(--border-default);"></div>
+                    <div id="obs-attendance-summary" aria-live="polite" style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-md); border: 2px solid var(--border-default);"></div>
 
                     <!-- Carga rapida -->
                     <div class="obs-quick-input">
@@ -599,7 +600,7 @@
 
                 <!-- Tarjeta de pregunta -->
                 <div id="question-card" class="question-card">
-                    <h3 id="question-section-header" class="question-section-header"></h3>
+                    <h3 id="question-section-header" class="question-section-header" aria-live="polite"></h3>
                     <div id="question-title-label" class="question-title-label"></div>
                     <div id="current-question-text" class="question-text-large"></div>
                     <div id="current-question-options" class="answer-buttons"></div>
@@ -617,19 +618,19 @@
             </section>
 
             <!-- Paso 2: Configuracion del Informe -->
-            <section id="step-2" class="step-content">
+            <section id="step-2" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
                 <h2>Configuracion del Informe</h2>
 
-                <div class="model-select-box">
-                    <label>Modelo de IA:</label>
-                    <div id="model-cards"></div>
+                 <div class="model-select-box" role="radiogroup" aria-labelledby="model-select-label">
+                    <span id="model-select-label" class="form-label">Modelo de IA:</span>
+                    <div id="model-cards" aria-live="polite" aria-relevant="additions removals"></div>
                     <div id="model-cards-extra" class="hidden"></div>
                     <button id="btn-show-more-models" class="btn-secondary btn-sm hidden" aria-label="Ver mas modelos">Ver mas modelos</button>
-                    <p id="model-description" class="model-description"></p>
+                    <p id="model-description" class="model-description" role="status" aria-live="polite"></p>
                 </div>
 
                 <h3>Variante del Informe</h3>
-                <div id="variants-list"></div>
+                <div id="variants-list" role="radiogroup" aria-labelledby="variant-select-label" aria-live="polite" aria-relevant="additions"></div>
                 <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
                     <button id="btn-step-2" class="btn-primary" aria-label="Generar informe">Generar Informe</button>
                     <button id="btn-back-to-questionnaire" class="btn-secondary" aria-label="Volver al cuestionario">Volver al cuestionario</button>
@@ -637,10 +638,10 @@
             </section>
 
             <!-- Paso 3: Informe Generado -->
-            <section id="step-3" class="step-content">
+            <section id="step-3" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
                 <h2>Informe Generado</h2>
-                <div id="report-preview" class="report-box">
-                    <p>Generando informe...</p>
+                <div id="report-preview" class="report-box" role="region" aria-live="polite" aria-atomic="true" aria-label="Vista previa del informe">
+                    <p class="hint">Completá los pasos anteriores para generar un informe.</p>
                 </div>
                 <div id="report-actions" class="hidden">
                     <button id="btn-download" class="btn-primary"><i data-lucide="download" style="width:18px;height:18px;"></i> Descargar</button>
@@ -654,33 +655,34 @@
                         <h3>Ajustar el informe</h3>
                         <p class="hint" style="margin-bottom:12px;">Describi que queres cambiar y regenera el informe.</p>
                         <div class="length-buttons">
-                            <button class="btn-secondary btn-sm length-btn" data-length="C">Un parrafo</button>
-                            <button class="btn-secondary btn-sm length-btn" data-length="A">Media carilla</button>
-                            <button class="btn-secondary btn-sm length-btn" data-length="B">Una carilla</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="C" aria-pressed="false">Un parrafo</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="A" aria-pressed="false">Media carilla</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="B" aria-pressed="false">Una carilla</button>
                         </div>
                         <textarea id="customization-text" class="customization-textarea" placeholder="Ej: que sea mas empatico, mas corto, que mencione su participacion en clase..."></textarea>
+                        <span id="customization-counter" class="hint" style="display:none;margin-top:4px;text-align:right;"></span>
                         <button id="btn-toggle-advanced" class="btn-ghost btn-sm" style="margin:8px 0;">Ajustes avanzados</button>
                         <div id="advanced-sliders" class="hidden">
                             <div class="sliders-group">
                                 <div class="slider-row">
-                                    <label>Formalidad</label>
-                                    <input type="range" id="slider-formality" min="0" max="100" value="50">
-                                    <span class="slider-labels"><span>Casual</span><span>Formal</span></span>
+                                    <label for="slider-formality">Formalidad</label>
+                                    <input type="range" id="slider-formality" min="0" max="100" value="50" aria-label="Formalidad: de Casual a Formal">
+                                    <span class="slider-labels" aria-hidden="true"><span>Casual</span><span>Formal</span></span>
                                 </div>
                                 <div class="slider-row">
-                                    <label>Empatia</label>
-                                    <input type="range" id="slider-empathy" min="0" max="100" value="50">
-                                    <span class="slider-labels"><span>Objetivo</span><span>Empatico</span></span>
+                                    <label for="slider-empathy">Empatia</label>
+                                    <input type="range" id="slider-empathy" min="0" max="100" value="50" aria-label="Empatia: de Objetivo a Empatico">
+                                    <span class="slider-labels" aria-hidden="true"><span>Objetivo</span><span>Empatico</span></span>
                                 </div>
                                 <div class="slider-row">
-                                    <label>Detalle</label>
-                                    <input type="range" id="slider-detail" min="0" max="100" value="50">
-                                    <span class="slider-labels"><span>Conciso</span><span>Desarrollado</span></span>
+                                    <label for="slider-detail">Detalle</label>
+                                    <input type="range" id="slider-detail" min="0" max="100" value="50" aria-label="Detalle: de Conciso a Desarrollado">
+                                    <span class="slider-labels" aria-hidden="true"><span>Conciso</span><span>Desarrollado</span></span>
                                 </div>
                                 <div class="slider-row">
-                                    <label>Naturalidad</label>
-                                    <input type="range" id="slider-naturalness" min="0" max="100" value="50">
-                                    <span class="slider-labels"><span>Estructurado</span><span>Conversacional</span></span>
+                                    <label for="slider-naturalness">Naturalidad</label>
+                                    <input type="range" id="slider-naturalness" min="0" max="100" value="50" aria-label="Naturalidad: de Estructurado a Conversacional">
+                                    <span class="slider-labels" aria-hidden="true"><span>Estructurado</span><span>Conversacional</span></span>
                                 </div>
                             </div>
                         </div>
@@ -718,7 +720,7 @@
         </div>
 
         <!-- ====== Loading ====== -->
-        <div id="loading" class="hidden">
+        <div id="loading" class="hidden" role="alert" aria-live="assertive">
             <div class="spinner"></div>
             <p>Procesando...</p>
         </div>

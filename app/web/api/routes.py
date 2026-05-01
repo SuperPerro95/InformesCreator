@@ -488,10 +488,29 @@ def generate_report_endpoint(req: ReportGenerateRequest):
     # Generar con Ollama
     model = req.model or config.model
     config.set("model", model)
+
+    # Pre-flight: check Ollama is running
+    if not is_ollama_running(config.ollama_url):
+        raise HTTPException(
+            status_code=503,
+            detail="El servidor Ollama no esta corriendo. Abri Ollama desde el menu de inicio o ejecuta 'ollama serve'.",
+        )
+
+    # Pre-flight: check model is available
+    available_models = get_available_models(config.ollama_url)
+    if model not in available_models:
+        raise HTTPException(
+            status_code=404,
+            detail=f"El modelo '{model}' no esta instalado. Descargalo con 'ollama pull {model}' y volve a intentar.",
+        )
+
     report_content = generate_report(system_prompt, user_prompt, config)
 
     if not report_content:
-        raise HTTPException(status_code=500, detail="No se pudo generar el informe")
+        raise HTTPException(
+            status_code=500,
+            detail="La generacion del informe fallo. El modelo puede estar ocupado o no tener suficiente memoria. Intenta de nuevo.",
+        )
 
     # Guardar informe
     output_dir = str(config.output_dir)

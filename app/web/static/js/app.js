@@ -326,12 +326,23 @@ retryFn();
 });
 toast.querySelector('.toast-dismiss').addEventListener('click', () => _dismissToast(toast));
 container.appendChild(toast);
+const retryBtn = toast.querySelector('.toast-retry');
+if (retryBtn) retryBtn.focus();
 const timer = setTimeout(() => _dismissToast(toast), 12000);
 toast._timer = timer;
 }
-function setLoading(isLoading) {
+function setLoading(isLoading, message) {
 const loader = $('loading');
-if (isLoading) show(loader); else hide(loader);
+const wizard = $('wizard');
+if (isLoading) {
+show(loader);
+if (message) loader.querySelector('p').textContent = message;
+if (wizard) wizard.setAttribute('aria-busy', 'true');
+} else {
+hide(loader);
+if (wizard) wizard.removeAttribute('aria-busy');
+loader.querySelector('p').textContent = 'Procesando...';
+}
 }
 function toggleUserDropdown() {
 const dd = $('user-dropdown');
@@ -353,6 +364,11 @@ document.removeEventListener('click', closeUserDropdownOutside);
 function closeUserDropdownOnItemClick() {
 hide($('user-dropdown'));
 document.removeEventListener('click', closeUserDropdownOutside);
+}
+function _announceStep(step) {
+  var labels = { 1: 'Paso 1: Cuestionario y observaciones', 2: 'Paso 2: Configuracion del informe', 3: 'Paso 3: Informe generado' };
+  var el = $('step-announcement');
+  if (el) el.textContent = labels[step] || '';
 }
 const HELP_CONTENT = {
 onboarding: `
@@ -656,6 +672,7 @@ const helpMap = { 1: 'wizard_obs', 2: 'wizard_cfg', 3: 'wizard_report' };
 const helpScreen = helpMap[step] || 'wizard_obs';
 updateHelpButton(helpScreen);
 currentHelpScreen = helpScreen;
+_announceStep(step);
 }
 async function initFromHashCourse(course, target, substep) {
 setLoading(true);
@@ -1458,6 +1475,9 @@ renderDashboard();
 updateHelpButton('dashboard');
 currentHelpScreen = 'dashboard';
 navigateTo(`#/course/${selectedCourse.replace(/\s+/g, '-')}`);
+$('report-preview').innerHTML = '<p class="hint">Completá los pasos anteriores para generar un informe.</p>';
+hide($('report-actions'));
+hide($('customization-panel'));
 }
 function goToWizardStep(step) {
 document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
@@ -1476,9 +1496,15 @@ const helpMap = { 1: 'wizard_obs', 2: 'wizard_cfg', 3: 'wizard_report' };
 const helpScreen = helpMap[step] || 'wizard_obs';
 updateHelpButton(helpScreen);
 currentHelpScreen = helpScreen;
+_announceStep(step);
 const slug = selectedCourse.replace(/\s+/g, '-');
 const extra = step === 2 ? '/config' : (step === 3 ? '/report' : '');
 navigateTo(`#/wizard/${slug}${extra}`);
+setTimeout(() => {
+  const stepEl = $(`step-${step}`);
+  const heading = stepEl ? stepEl.querySelector('h2, h3, h4') : null;
+  if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus(); }
+}, 100);
 }
 async function startWizardForStudent(continuar = false) {
 showWizard();
@@ -1600,7 +1626,7 @@ container.innerHTML = currentObservations.map((obs, i) => {
 const codigo = (obs.codigo || '').toString().toUpperCase();
 return `
 <div class="obs-row" data-index="${i}">
-<input type="text" class="obs-fecha" value="${obs.fecha || ''}" placeholder="15/3">
+<input type="text" class="obs-fecha" value="${obs.fecha || ''}" placeholder="15/3" aria-label="Fecha de observacion">
 <select class="obs-codigo" aria-label="Codigo de observacion">
 <option value="" ${codigo === '' ? 'selected' : ''}>Seleccionar</option>
 <option value="P" ${codigo === 'P' ? 'selected' : ''} aria-label="P: Presente">P</option>
@@ -1609,7 +1635,7 @@ return `
 <option value="P-X" ${codigo === 'P-X' ? 'selected' : ''} aria-label="P-X: Presente sin material">P-X</option>
 <option value="T" ${codigo === 'T' ? 'selected' : ''} aria-label="T: Tardanza">T</option>
 </select>
-<input type="text" class="obs-comentario" value="${obs.comentario || ''}" placeholder="Comentario">
+<input type="text" class="obs-comentario" value="${obs.comentario || ''}" placeholder="Comentario" aria-label="Comentario de observacion">
 <button class="btn-remove-row" data-index="${i}"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
 </div>
 `;
@@ -1650,10 +1676,11 @@ updateObsAttendanceSummary();
 }
 function updateObsAttendanceSummary() {
 const totalObs = currentObservations.length;
-const summaryText = totalObs > 0
-? `${totalObs} observacion${totalObs !== 1 ? 'es' : ''} registrada${totalObs !== 1 ? 's' : ''}`
-: 'Sin observaciones registradas';
-$('obs-attendance-summary').textContent = summaryText;
+var sumEl = $('obs-attendance-summary');
+sumEl.textContent = totalObs > 0
+  ? totalObs + ' observacion' + (totalObs !== 1 ? 'es' : '') + ' registrada' + (totalObs !== 1 ? 's' : '')
+  : 'Sin observaciones registradas';
+sumEl.classList.toggle('has-data', totalObs > 0);
 }
 function updateObsAttendancePercentage() {
 const total = parseInt($('obs-attendance-total').value) || 0;
@@ -1689,7 +1716,11 @@ include: true,
 total_classes: totalClasses,
 absences: absences
 };
-hide($('observations-panel'));
+var obsPanel = $('observations-panel');
+obsPanel.classList.add('exiting');
+await new Promise(function(r) { return setTimeout(r, 200); });
+hide(obsPanel);
+obsPanel.classList.remove('exiting');
 startQuestionnaireForCurrentStudent();
 } catch (err) {
 showToast('No se pudieron guardar las observaciones. Intenta de nuevo.', 'error');
@@ -1698,8 +1729,13 @@ setLoading(false);
 }
 }
 function skipObservationsAndContinue() {
-hide($('observations-panel'));
-startQuestionnaireForCurrentStudent();
+var obsPanel = $('observations-panel');
+obsPanel.classList.add('exiting');
+setTimeout(function() {
+  hide(obsPanel);
+  obsPanel.classList.remove('exiting');
+  startQuestionnaireForCurrentStudent();
+}, 200);
 }
 function continueQuestionnaireForCurrentStudent() {
 const student = allStudents[currentStudentIndex];
@@ -1862,6 +1898,27 @@ optionsContainer.appendChild(btn);
 _refreshIcons(optionsContainer);
 $('prev-question-btn').disabled = index === 0;
 show($('prev-question-btn'));
+// Animation: trigger entering
+var qCard = $('question-card');
+var optionsEl = $('current-question-options');
+var sectionHeader = $('question-section-header');
+[qCard, optionsEl, sectionHeader].forEach(function(el) { el.classList.remove('entering'); });
+requestAnimationFrame(function() {
+  requestAnimationFrame(function() {
+    qCard.classList.add('entering');
+    optionsEl.classList.add('entering');
+    sectionHeader.classList.add('entering');
+  });
+});
+var counterEl = $('question-counter');
+if (counterEl) {
+  counterEl.classList.remove('entering');
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      counterEl.classList.add('entering');
+    });
+  });
+}
 }
 function handleAnswer(value) {
 if (handleAnswer._pending) {
@@ -1871,8 +1928,19 @@ handleAnswer._pending = null;
 questionnaireAnswers[currentQuestionIndex] = value;
 const allBtns = document.querySelectorAll('.answer-btn');
 allBtns.forEach(b => {
-if (b.dataset.value === value) b.classList.add('selected');
-else b.classList.remove('selected');
+if (b.dataset.value === value) {
+  b.classList.add('selected');
+  b.style.transition = 'transform 150ms cubic-bezier(0.22, 1, 0.36, 1)';
+  b.style.transform = 'scale(0.96)';
+  requestAnimationFrame(function() {
+    requestAnimationFrame(function() {
+      b.style.transform = '';
+      b.style.transition = '';
+    });
+  });
+} else {
+  b.classList.remove('selected');
+}
 });
 handleAnswer._pending = setTimeout(() => {
 handleAnswer._pending = null;
@@ -1925,9 +1993,13 @@ setLoading(false);
 }
 async function finishQuestionnaire() {
 await saveQuestionnaireBackend();
-hide($('question-card'));
-hide(document.querySelector('.question-progress-bar'));
-hide($('question-counter'));
+var qCard = $('question-card');
+var progBar = document.querySelector('.question-progress-bar');
+var qCounter = $('question-counter');
+[qCard, progBar, qCounter].forEach(function(el) { if (el) el.classList.add('exiting'); });
+await new Promise(function(r) { return setTimeout(r, 200); });
+hide(qCard); hide(progBar); hide(qCounter);
+[qCard, progBar, qCounter].forEach(function(el) { if (el) el.classList.remove('exiting'); });
 goToWizardStep(2);
 await loadVariants();
 }
@@ -1987,84 +2059,93 @@ return name.split(':')[0];
 }
 async function loadModelSelect() {
 try {
+var container = $('model-cards');
+var extraContainer = $('model-cards-extra');
+var btnMore = $('btn-show-more-models');
+var descEl = $('model-description');
+container.innerHTML = '<p class="hint">Cargando modelos disponibles...</p>';
+hide(extraContainer);
+hide(btnMore);
+function selectModelCard(card) {
+  var model = card.dataset.model;
+  document.querySelectorAll('.selection-card').forEach(function(c) { c.classList.remove('selected'); c.setAttribute('aria-selected', 'false'); });
+  card.classList.add('selected');
+  card.setAttribute('aria-selected', 'true');
+  selectedModel = model;
+  var entry = modelEntries.find(function(e) { return e.rawName === model; });
+  if (entry) {
+    descEl.innerHTML = '<strong>' + entry.name + '</strong> &mdash; ' + entry.desc + (entry.desc.indexOf('Cloud') !== -1 ? ' <span style="color:var(--tertiary);font-size:0.8125rem;">(Requiere internet, puede tardar ~30 seg)</span>' : '');
+  }
+}
 const data = await apiGet('/ollama/status');
-const container = $('model-cards');
-const extraContainer = $('model-cards-extra');
-const btnMore = $('btn-show-more-models');
-const descEl = $('model-description');
 const rawModels = data.models || [];
 if (rawModels.length === 0) {
-container.innerHTML = '<p class="hint">No hay modelos instalados.</p>';
+container.innerHTML = '<p class="hint">No hay modelos instalados. Abrí Ollama e instalá un modelo (ej. <code>ollama pull gemma3</code>).</p>';
 hide(extraContainer);
 hide(btnMore);
 selectedModel = null;
 descEl.innerHTML = '<span style="color: var(--danger-text);">Ningun modelo instalado.</span>';
+var btn2 = $('btn-step-2');
+if (btn2) btn2.disabled = true;
 return;
 }
-let modelEntries = rawModels.map(rawName => {
-const baseName = normalizeModelName(rawName);
-const info = MODEL_INFO[baseName];
+let modelEntries = rawModels.map(function(rawName) {
+var baseName = normalizeModelName(rawName);
+var info = MODEL_INFO[baseName];
 if (info) {
-return { rawName, name: info.name, desc: info.desc, isRecommended: baseName === 'gemma4' };
+return { rawName: rawName, name: info.name, desc: info.desc, isRecommended: baseName === 'gemma4' };
 }
-return { rawName, name: rawName, desc: 'Modelo instalado en Ollama.', isRecommended: false };
+return { rawName: rawName, name: rawName, desc: 'Modelo instalado en Ollama.', isRecommended: false };
 });
-modelEntries.sort((a, b) => {
+modelEntries.sort(function(a, b) {
 if (a.isRecommended && !b.isRecommended) return -1;
 if (!a.isRecommended && b.isRecommended) return 1;
 return 0;
 });
-const firstThree = modelEntries.slice(0, 3);
-const rest = modelEntries.slice(3);
-const hasCloud = firstThree.some(m => m.desc.includes('Cloud'));
-const hasLocal = firstThree.some(m => m.desc.includes('Local'));
-const hintHtml = (hasCloud && hasLocal)
+var firstThree = modelEntries.slice(0, 3);
+var rest = modelEntries.slice(3);
+var hasCloud = firstThree.some(function(m) { return m.desc.indexOf('Cloud') !== -1; });
+var hasLocal = firstThree.some(function(m) { return m.desc.indexOf('Local') !== -1; });
+var hintHtml = (hasCloud && hasLocal)
     ? '<p class="hint" style="margin-bottom:12px;">Los modelos en la nube escriben mejor pero necesitan internet. Los locales funcionan sin conexion y son mas rapidos.</p>'
     : '';
-container.innerHTML = hintHtml + firstThree.map(m => `
-<div class="selection-card model-card" data-model="${m.rawName}">
-${m.isRecommended ? '<span class="recommended-badge">Recomendado</span>' : ''}
-<h4>${m.name}</h4>
-<p>${m.desc}</p>
-</div>
-`).join('');
+container.innerHTML = hintHtml + firstThree.map(function(m) {
+return '<div class="selection-card model-card" data-model="' + m.rawName + '" tabindex="0" role="radio" aria-selected="false" aria-label="Seleccionar modelo ' + m.name + '">' +
+(m.isRecommended ? '<span class="recommended-badge">Recomendado</span>' : '') +
+'<h4>' + m.name + '</h4>' +
+'<p>' + m.desc + '</p>' +
+'</div>';
+}).join('');
 if (rest.length > 0) {
-extraContainer.innerHTML = rest.map(m => `
-<div class="selection-card model-card" data-model="${m.rawName}">
-<h4>${m.name}</h4>
-<p>${m.desc}</p>
-</div>
-`).join('');
+extraContainer.innerHTML = rest.map(function(m) {
+return '<div class="selection-card model-card" data-model="' + m.rawName + '" tabindex="0" role="radio" aria-selected="false" aria-label="Seleccionar modelo ' + m.name + '">' +
+'<h4>' + m.name + '</h4>' +
+'<p>' + m.desc + '</p>' +
+'</div>';
+}).join('');
 show(btnMore);
 hide(extraContainer);
 } else {
 hide(btnMore);
 hide(extraContainer);
 }
-const preferred = modelEntries.find(m => m.isRecommended) || modelEntries[0];
+var preferred = modelEntries.find(function(m) { return m.isRecommended; }) || modelEntries[0];
 if (preferred) {
-selectedModel = preferred.rawName;
-const card = container.querySelector(`.selection-card[data-model="${preferred.rawName}"]`)
-|| extraContainer.querySelector(`.selection-card[data-model="${preferred.rawName}"]`);
-if (card) card.classList.add('selected');
-descEl.innerHTML = `<strong>${preferred.name}</strong> — ${preferred.desc}${preferred.desc.includes('Cloud') ? ' <span style="color:var(--tertiary);font-size:0.8125rem;">(Requiere internet, puede tardar ~30 seg)</span>' : ''}`;
+var preferredCard = container.querySelector('.selection-card[data-model="' + preferred.rawName + '"]') || extraContainer.querySelector('.selection-card[data-model="' + preferred.rawName + '"]');
+if (preferredCard) selectModelCard(preferredCard);
 }
-[container, extraContainer].forEach(cont => {
-cont.querySelectorAll('.selection-card').forEach(card => {
-card.addEventListener('click', () => {
-const model = card.dataset.model;
-document.querySelectorAll('.selection-card').forEach(c => c.classList.remove('selected'));
-card.classList.add('selected');
-selectedModel = model;
-const entry = modelEntries.find(e => e.rawName === model);
-if (entry) {
-descEl.innerHTML = `<strong>${entry.name}</strong> — ${entry.desc}${entry.desc.includes('Cloud') ? ' <span style="color:var(--tertiary);font-size:0.8125rem;">(Requiere internet, puede tardar ~30 seg)</span>' : ''}`;
-}
+[container, extraContainer].forEach(function(cont) {
+cont.querySelectorAll('.selection-card').forEach(function(card) {
+card.addEventListener('click', function() { selectModelCard(card); });
+card.addEventListener('keydown', function(e) {
+if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectModelCard(card); }
 });
 });
 });
 } catch (err) {
 console.error('Error loading models:', err);
+var container = $('model-cards');
+container.innerHTML = '<p class="hint" style="color:var(--danger-text);">Error al cargar modelos. Verificá que Ollama esté funcionando.</p>';
 }
 }
 async function loadVariants() {
@@ -2072,17 +2153,22 @@ try {
 await loadModelSelect();
 const data = await apiGet('/variants');
 const container = $('variants-list');
-container.innerHTML = data.map(v => `
-<div class="selection-card variant-card" data-id="${v.id}">
-<h4>${v.id}) ${v.name}</h4>
-<p>${v.description}</p>
-</div>
-`).join('');
-container.querySelectorAll('.selection-card').forEach(card => {
-card.addEventListener('click', () => {
-container.querySelectorAll('.selection-card').forEach(c => c.classList.remove('selected'));
-card.classList.add('selected');
-selectedVariant = card.dataset.id;
+function selectVariantCard(card) {
+  container.querySelectorAll('.selection-card').forEach(function(c) { c.classList.remove('selected'); c.setAttribute('aria-selected', 'false'); });
+  card.classList.add('selected');
+  card.setAttribute('aria-selected', 'true');
+  selectedVariant = card.dataset.id;
+}
+container.innerHTML = data.map(function(v) {
+return '<div class="selection-card variant-card" data-id="' + v.id + '" tabindex="0" role="radio" aria-selected="false" aria-label="Variante ' + v.name + '">' +
+'<h4>' + v.id + ') ' + v.name + '</h4>' +
+'<p>' + v.description + '</p>' +
+'</div>';
+}).join('');
+container.querySelectorAll('.selection-card').forEach(function(card) {
+card.addEventListener('click', function() { selectVariantCard(card); });
+card.addEventListener('keydown', function(e) {
+if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); selectVariantCard(card); }
 });
 });
 if (data.length > 0) {
@@ -2118,7 +2204,7 @@ return;
 const answers = collectAnswers();
 const model = selectedModel;
 const contents = $('sidebar-contents') ? $('sidebar-contents').value : '';
-setLoading(true);
+setLoading(true, 'Enviando respuestas al modelo de IA...');
 try {
 const data = await apiPost('/reports/generate', {
 course: selectedCourse,
@@ -2149,6 +2235,7 @@ courseSessions[selectedCourse] = refreshedSession;
 $('report-preview').innerHTML = renderMarkdownToHtml(data.report_content);
 lastReportDownloaded = false;
 show($('report-actions'));
+var preview = $('report-preview'); if (preview) { preview.setAttribute('tabindex', '-1'); preview.focus(); }
 const btnNext = $('btn-next-student');
 if (currentStudentIndex < allStudents.length - 1) {
 btnNext.textContent = `Siguiente alumno (${currentStudentIndex + 2}/${allStudents.length})`;
@@ -2214,7 +2301,7 @@ const answers = collectAnswers();
 const model = selectedModel;
 const contents = $('sidebar-contents') ? $('sidebar-contents').value : '';
 const customization = $('customization-text').value.trim() || null;
-setLoading(true);
+setLoading(true, 'Enviando respuestas al modelo de IA...');
 try {
 const data = await apiPost('/reports/generate', {
 course: selectedCourse,
@@ -2246,6 +2333,7 @@ courseSessions[selectedCourse] = refreshedSession;
 $('report-preview').innerHTML = renderMarkdownToHtml(data.report_content);
 lastReportDownloaded = false;
 show($('report-actions'));
+var preview = $('report-preview'); if (preview) { preview.setAttribute('tabindex', '-1'); preview.focus(); }
 setLoading(false);
 } catch (err) {
 setLoading(false);
@@ -2319,6 +2407,10 @@ $('report-preview').innerHTML = '<p>Generando informe...</p>';
 hide($('report-actions'));
 goToWizardStep(1);
 setupQuestionnaireForCurrentStudent();
+setTimeout(function() {
+  var firstFocusable = document.querySelector('#step-1 button, #step-1 input, #step-1 select, #step-1 textarea');
+  if (firstFocusable) firstFocusable.focus();
+}, 100);
 }
 }
 	// ====== Sidebar ======
@@ -2732,8 +2824,9 @@ btn.textContent = 'Ajustes avanzados';
 document.querySelectorAll('.length-btn').forEach(btn => {
 btn.addEventListener('click', (e) => {
 selectedVariant = e.currentTarget.dataset.length;
-document.querySelectorAll('.length-btn').forEach(b => b.classList.remove('active'));
+document.querySelectorAll('.length-btn').forEach(b => { b.classList.remove('active'); b.setAttribute('aria-pressed', 'false'); });
 e.currentTarget.classList.add('active');
+e.currentTarget.setAttribute('aria-pressed', 'true');
 });
 });
 ['formality', 'empathy', 'detail', 'naturalness'].forEach(name => {
