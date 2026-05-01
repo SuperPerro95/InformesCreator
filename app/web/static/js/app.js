@@ -1063,69 +1063,101 @@ setLoading(false);
 }
 }
 function openCoursesMenu() {
-hide($('course-view'));
-hide($('wizard'));
-show($('layout-body')); show($('courses-grid')); renderSidebarCourses();
-loadCoursesGrid();
-updateHelpButton('courses');
-currentHelpScreen = 'courses';
-navigateTo('#/courses');
-}
+ hide($('course-view'));
+ hide($('wizard'));
+ const contentsPanel = $('sidebar-contents-panel');
+ if (contentsPanel) contentsPanel.classList.add('hidden');
+ show($('layout-body')); show($('courses-grid')); renderSidebarCourses();
+ loadCoursesGrid();
+ updateHelpButton('courses');
+ currentHelpScreen = 'courses';
+ navigateTo('#/courses');
+ }
+let _dashboardPrevCompleted = -1;
 async function renderDashboard() {
-if (!cachedQuestionnaires) {
-try {
-cachedQuestionnaires = await apiGet('/questionnaires');
-} catch (err) {
-cachedQuestionnaires = [];
-}
-}
-const session = courseSessions[selectedCourse] || {};
-const studentQs = session.student_questionnaires || {};
-const backendCompletados = new Set(session.progreso?.completados || []);
-sessionReports.forEach(r => {
-if (r.completed) backendCompletados.add(r.filename);
-});
-const completedCount = backendCompletados.size;
-const totalCount = allStudents.length;
-$('dashboard-stats').innerHTML = `
-<div class="dashboard-stats">
-<div class="stat-number">${completedCount}<span class="font-mono" style="font-size: 1rem; color: var(--text-muted);"> / ${totalCount}</span></div>
-<div class="stat-label">Alumnos completados</div>
-</div>
-`;
-const container = $('dashboard-students-list');
-if (allStudents.length === 0) {
-container.innerHTML = '<p class="hint">No se encontraron alumnos en este curso.</p>';
-return;
-}
-container.innerHTML = allStudents.map((s, i) => {
-	const isCompleted = backendCompletados.has(s.filename);
-	const hasSavedAnswers = !!(session.respuestas && session.respuestas[s.filename]);
-	const isIncompleto = !isCompleted && hasSavedAnswers;
-	const badgeClass = isCompleted ? 'badge-success' : (isIncompleto ? 'badge-warning' : 'badge-subtle');
-	const statusText = isCompleted ? 'Informe listo' : (isIncompleto ? 'Cuestionario guardado' : 'Sin empezar');
-	return `
-	<div class="list-row" data-index="${i}" onclick="selectStudent(${i})">
-	<span class="row-num font-mono">${i + 1}</span>
-	<span class="row-name">${s.nombre_completo}</span>
-	<span class="badge ${badgeClass}">${statusText}</span>
-	<span class="row-action-hint"><i data-lucide="chevron-right" style="width:16px;height:16px;"></i></span>
-	</div>
-	`;
-	}).join('');
-
-_refreshIcons(container);renderQuestionnaireSelector();
-const searchInput = $('student-search');
-if (searchInput && !searchInput._wired) {
-searchInput._wired = true;
-searchInput.addEventListener('input', () => {
-const q = searchInput.value.toLowerCase();
-document.querySelectorAll('#dashboard-students-list .list-row').forEach(row => {
-const name = row.querySelector('.row-name');
-if (name) row.style.display = name.textContent.toLowerCase().includes(q) ? '' : 'none';
-});
-});
-}
+ if (!cachedQuestionnaires) {
+ try {
+ cachedQuestionnaires = await apiGet('/questionnaires');
+ } catch (err) {
+ cachedQuestionnaires = [];
+ }
+ }
+ const session = courseSessions[selectedCourse] || {};
+ const studentQs = session.student_questionnaires || {};
+ const backendCompletados = new Set(session.progreso?.completados || []);
+ sessionReports.forEach(r => {
+ if (r.completed) backendCompletados.add(r.filename);
+ });
+ const completedCount = backendCompletados.size;
+ const totalCount = allStudents.length;
+ const progressPct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+ const isComplete = completedCount === totalCount && totalCount > 0;
+ const circumference = 2 * Math.PI * 19;
+ const offset = circumference - (progressPct / 100) * circumference;
+ const progressColor = isComplete ? 'var(--success-text)' : 'var(--accent)';
+ const progressLabel = isComplete ? 'Curso completo' : 'Alumnos completados';
+ const milestoneHtml = isComplete ? '<div class="milestone-banner"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg> Todos los informes están listos. ¡Buen trabajo!</div>' : '';
+ $('dashboard-stats').innerHTML = `
+ ${milestoneHtml}
+ <div class="dashboard-stats">
+ <div style="display:flex;align-items:center;gap:var(--space-4);">
+ <svg class="progress-ring" viewBox="0 0 48 48" style="width:48px;height:48px;opacity:0.8;">
+ <circle class="ring-bg" cx="24" cy="24" r="19" />
+ <circle class="ring-fill" cx="24" cy="24" r="19" stroke="${progressColor}" stroke-dasharray="${offset} ${circumference}" transform="rotate(-90 24 24)" />
+ <text x="24" y="24" text-anchor="middle" dominant-baseline="central" style="font-family:var(--font-mono);font-size:10px;font-weight:700;fill:var(--text-primary);">${progressPct}%</text>
+ </svg>
+ <div>
+ <div class="stat-number">${completedCount}<span class="font-mono" style="font-size: 1rem; color: var(--text-muted);"> / ${totalCount}</span></div>
+ <div class="stat-label">${progressLabel}</div>
+ </div>
+ </div>
+ <div class="progress-bar-track"><div class="progress-bar-fill ${isComplete ? 'complete' : ''}" style="width:${progressPct}%"></div></div>
+ </div>
+ `;
+ setTimeout(() => {
+ const ringFill = document.querySelector('.progress-ring .ring-fill');
+ if (ringFill) {
+ const targetOffset = circumference - (progressPct / 100) * circumference;
+ ringFill.setAttribute('stroke-dasharray', `${targetOffset} ${circumference}`);
+ ringFill.setAttribute('stroke', progressColor);
+ }
+ }, 50);
+ const container = $('dashboard-students-list');
+ if (allStudents.length === 0) {
+ container.innerHTML = '<div class="course-view-enter-delay" style="text-align:center;padding:var(--space-8) var(--space-4);animation-delay:100ms"><p style="font-size:1rem;font-weight:600;color:var(--text-primary);margin-bottom:var(--space-2)">Aún no hay alumnos en este curso</p><p class="hint">Agregá alumnos desde la carpeta del curso para empezar a trabajar.</p></div>';
+ return;
+ }
+ container.innerHTML = allStudents.map((s, i) => {
+ const isCompleted = backendCompletados.has(s.filename);
+ const hasSavedAnswers = !!(session.respuestas && session.respuestas[s.filename]);
+ const isIncompleto = !isCompleted && hasSavedAnswers;
+ const badgeClass = isCompleted ? 'badge-success' : (isIncompleto ? 'badge-warning' : 'badge-subtle');
+ const statusText = isCompleted ? 'Informe listo' : (isIncompleto ? 'Cuestionario guardado' : 'Sin empezar');
+ const pulseClass = (_dashboardPrevCompleted >= 0 && isCompleted && !s._prevCompleted) ? ' badge-pulse' : '';
+ s._prevCompleted = isCompleted;
+ const delay = Math.min(i * 30, 300);
+ return `
+ <div class="list-row delight-enter" data-index="${i}" onclick="selectStudent(${i})" style="animation-delay:${delay}ms">
+ <span class="row-num font-mono">${i + 1}</span>
+ <span class="row-name">${s.nombre_completo}</span>
+ <span class="badge ${badgeClass}${pulseClass}">${statusText}</span>
+ <span class="row-action-hint"><i data-lucide="chevron-right" style="width:16px;height:16px;"></i></span>
+ </div>
+ `;
+ }).join('');
+ _dashboardPrevCompleted = completedCount;
+ _refreshIcons(container);renderQuestionnaireSelector();
+ const searchInput = $('student-search');
+ if (searchInput && !searchInput._wired) {
+ searchInput._wired = true;
+ searchInput.addEventListener('input', () => {
+ const q = searchInput.value.toLowerCase();
+ document.querySelectorAll('#dashboard-students-list .list-row').forEach(row => {
+ const name = row.querySelector('.row-name');
+ if (name) row.style.display = name.textContent.toLowerCase().includes(q) ? '' : 'none';
+ });
+ });
+ }
 }
 async function saveStudentQuestionnaire(filename, qid) {
 try {
@@ -1476,27 +1508,46 @@ setupQuestionnaireForCurrentStudent();
 }
 }
 async function loadContents(course) {
-try {
-const data = await apiGet(`/courses/${encodeURIComponent(course)}/contents`);
-$('course-contents').value = data.contents || '';
-} catch (err) {
-console.error('Error loading contents:', err);
-}
-}
+ try {
+ const data = await apiGet(`/courses/${encodeURIComponent(course)}/contents`);
+ const textarea = $('sidebar-contents');
+ if (textarea) {
+ textarea.value = data.contents || '';
+ textarea.dataset.savedValue = textarea.value;
+ updateSaveContentsButton();
+ }
+ } catch (err) {
+ console.error('Error loading contents:', err);
+ }
+ }
+async function saveSidebarContents() {
+ if (!selectedCourse) return;
+ const textarea = $('sidebar-contents');
+ if (!textarea) return;
+ setLoading(true);
+ try {
+ await apiPost(`/courses/${encodeURIComponent(selectedCourse)}/contents`, {
+ contents: textarea.value
+ });
+ textarea.dataset.savedValue = textarea.value;
+ updateSaveContentsButton();
+ showToast('Contenidos guardados.', 'success');
+ } catch (err) {
+ showToast('No se pudieron guardar los contenidos. ' + err.message, 'error');
+ } finally {
+ setLoading(false);
+ }
+ }
+ function updateSaveContentsButton() {
+ const textarea = $('sidebar-contents');
+ const btn = $('btn-sidebar-save-contents');
+ if (!textarea || !btn) return;
+ const hasChanges = textarea.value !== (textarea.dataset.savedValue || '');
+ btn.disabled = !hasChanges;
+ }
 async function saveContents() {
-if (!selectedCourse) return;
-setLoading(true);
-try {
-await apiPost(`/courses/${encodeURIComponent(selectedCourse)}/contents`, {
-contents: $('course-contents').value
-});
-showContentsViewMode();
-} catch (err) {
-showToast('No se pudieron guardar los contenidos. ' + err.message, 'error');
-} finally {
-setLoading(false);
-}
-}
+ return saveSidebarContents();
+ }
 function parseStudentNames(rawText) {
 const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 0);
 return lines.map((line, i) => {
@@ -2046,7 +2097,7 @@ return;
 }
 const answers = collectAnswers();
 const model = selectedModel;
-const contents = $('course-contents').value;
+const contents = $('sidebar-contents') ? $('sidebar-contents').value : '';
 setLoading(true);
 try {
 const data = await apiPost('/reports/generate', {
@@ -2141,7 +2192,7 @@ return;
 const variant = selectedVariant || 'A';
 const answers = collectAnswers();
 const model = selectedModel;
-const contents = $('course-contents').value;
+const contents = $('sidebar-contents') ? $('sidebar-contents').value : '';
 const customization = $('customization-text').value.trim() || null;
 setLoading(true);
 try {
@@ -2270,6 +2321,16 @@ setupQuestionnaireForCurrentStudent();
 	_refreshIcons(list);
 	} catch (err) {
 	console.error('Error loading sidebar courses:', err);
+	}
+	const contentsPanel = $('sidebar-contents-panel');
+	if (contentsPanel) {
+	if (selectedCourse) {
+	contentsPanel.classList.remove('hidden');
+	if (window.lucide) lucide.createIcons({ nodes: [contentsPanel] });
+	loadContents(selectedCourse);
+	} else {
+	contentsPanel.classList.add('hidden');
+	}
 	}
 	}
 	function navigateToCourse(name) {
@@ -2557,32 +2618,28 @@ setLoading(false);
 showToast('No se pudo abrir el selector. ' + err.message, 'error');
 }
 });
-$('btn-back-to-menu').addEventListener('click', openCoursesMenu);
-const btnToggleQ = $('btn-toggle-questionnaire');
-const qSelector = $('dashboard-questionnaire-selector');
-if (btnToggleQ && qSelector) {
-btnToggleQ.addEventListener('click', () => {
-const isHidden = qSelector.classList.contains('hidden');
-if (isHidden) {
-qSelector.classList.remove('hidden');
-btnToggleQ.setAttribute('aria-expanded', 'true');
-} else {
-qSelector.classList.add('hidden');
-btnToggleQ.setAttribute('aria-expanded', 'false');
-}
-});
-}
-$('btn-edit-contents-dashboard').addEventListener('click', () => {
-const el = $('dashboard-contents-editor');
-if (el.classList.contains('hidden')) {
-show(el);
-$('btn-edit-contents-dashboard').textContent = 'Ocultar contenidos del curso';
-} else {
-hide(el);
-$('btn-edit-contents-dashboard').textContent = 'Editar contenidos del curso';
-}
-});
-$('btn-save-contents-dashboard').addEventListener('click', saveContents);
+ $('btn-back-to-menu').addEventListener('click', openCoursesMenu);
+ const qSelector = $('dashboard-questionnaire-selector');
+ if (qSelector) {
+ qSelector.addEventListener('click', (e) => {
+ if (e.target.tagName === 'LABEL' || e.target.tagName === 'H4') {
+ const isHidden = qSelector.classList.contains('hidden');
+ if (isHidden) {
+ qSelector.classList.remove('hidden');
+ } else {
+ qSelector.classList.add('hidden');
+ }
+ }
+ });
+ }
+ const sidebarContents = $('sidebar-contents');
+ if (sidebarContents) {
+ sidebarContents.addEventListener('input', updateSaveContentsButton);
+ }
+ const btnSaveSidebarContents = $('btn-sidebar-save-contents');
+ if (btnSaveSidebarContents) {
+ btnSaveSidebarContents.addEventListener('click', saveSidebarContents);
+ }
 $('prev-question-btn').addEventListener('click', goToPreviousQuestion);
 $('btn-save-questionnaire').addEventListener('click', saveQuestionnaire);
 $('question-skip-text').addEventListener('click', skipQuestion);

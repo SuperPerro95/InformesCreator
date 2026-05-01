@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=6">
+    <link rel="stylesheet" href="/css/style.css?v=8">
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
@@ -410,6 +410,17 @@
                 </div>
                 <nav id="sidebar-courses-list" class="sidebar-courses-list" role="navigation" aria-label="Cursos">
                 </nav>
+                <div id="sidebar-contents-panel" class="sidebar-contents-panel hidden" role="complementary" aria-label="Contenidos del curso">
+                    <h4 class="sidebar-contents-title">
+                        <i data-lucide="book-open" style="width:14px;height:14px;"></i>
+                        Contenidos del curso
+                    </h4>
+                    <p class="sidebar-contents-hint">Los contenidos se incluyen en cada informe generado.</p>
+                    <textarea id="sidebar-contents" rows="4" placeholder="Present simple&#10;Past simple&#10;Vocabulary"></textarea>
+                    <button id="btn-sidebar-save-contents" class="btn-primary btn-sm" style="width:100%;" disabled>
+                        <i data-lucide="save" style="width:14px;height:14px;"></i> Guardar
+                    </button>
+                </div>
                 <div class="sidebar-footer">
                     <button id="btn-sidebar-new-course" class="btn-secondary btn-sm" style="width:100%;margin-top:0;">
                         <i data-lucide="plus" style="width:16px;height:16px;"></i> Nuevo curso
@@ -481,39 +492,29 @@
         </div>
 
         <!-- ====== Dashboard del Curso (pantalla principal) ====== -->
-        <div id="course-view" class="hidden paper-sheet">
+        <div id="course-view" class="hidden course-view-surface">
             <div class="course-view-header">
                 <h2 id="course-view-title">Curso</h2>
                 <p class="hint">Selecciona un alumno para empezar a escribir su informe.</p>
             </div>
 
-            <div style="display: flex; gap: var(--space-4); margin: var(--space-4) 0; flex-wrap: wrap;">
-                <div id="dashboard-stats" class="summary-box" style="margin: 0; flex: 2; min-width: 280px;"></div>
-                <button id="btn-toggle-questionnaire" class="btn-ghost btn-sm" style="margin: 0; align-self: center;" aria-expanded="false">Cuestionario activo <i data-lucide="chevron-down" style="width:14px;height:14px;"></i></button>
-            </div>
-            <div id="dashboard-questionnaire-selector" class="summary-box hidden" style="margin: 0 0 var(--space-4) 0; display: flex; flex-direction: column; gap: var(--space-2);">
-                <label for="active-questionnaire" style="font-weight: 600; font-size: 0.875rem; color: var(--text-secondary); margin: 0;">Elegi el cuestionario para este curso:</label>
-                <select id="active-questionnaire" style="width: 100%; padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); border: 1px solid var(--border-default); font-size: 0.875rem;">
+            <div id="dashboard-stats" class="course-view-stats"></div>
+            
+            <div id="dashboard-questionnaire-selector" class="course-view-questionnaire">
+                <label for="active-questionnaire" class="course-view-questionnaire-label">Cuestionario activo:</label>
+                <select id="active-questionnaire" class="course-view-questionnaire-select">
                     <option value="">Predeterminado (19 preguntas)</option>
                 </select>
             </div>
-            <div class="student-filter" style="margin-bottom: var(--space-3);">
-                <input type="text" id="student-search" class="student-search-input" placeholder="Buscar alumno por nombre..." style="width: 100%;">
+
+            <div class="course-view-search">
+                <input type="text" id="student-search" class="course-view-search-input" placeholder="Buscar alumno por nombre...">
             </div>
             <div id="dashboard-students-list" class="students-list list-container"></div>
 
-            <div id="dashboard-contents-editor" class="hidden" style="margin: var(--space-4) 0;">
-                <h3>Contenidos del curso</h3>
-                <textarea id="course-contents" rows="4" placeholder="Present simple&#10;Past simple&#10;Vocabulary"></textarea>
-                <div style="margin-top: var(--space-3);">
-                    <button id="btn-save-contents-dashboard" class="btn-primary">Guardar contenidos</button>
-                </div>
-            </div>
-
             <div class="dashboard-actions">
-                <button id="btn-edit-contents-dashboard" class="btn-secondary">Editar contenidos del curso</button>
-                <button id="btn-download-all" class="btn-primary">Descargar informe completo del curso</button>
                 <button id="btn-back-to-menu" class="btn-secondary">Volver a Mis Cursos</button>
+                <button id="btn-download-all" class="btn-primary">Descargar informe completo del curso</button>
             </div>
         </div>
 
@@ -827,6 +828,6 @@
         </div>
     </div>
 
-    <script src="/js/app.js?v=7"></script>
+    <script src="/js/app.js?v=9"></script>
 </body>
 </html>
