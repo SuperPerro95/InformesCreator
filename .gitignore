@@ -43,3 +43,6 @@ dist/
 .playwright-mcp/
 .coverage
 *.Zone.Identifier
+# Added by code-review-graph
+.code-review-graph/
+.worktrees/
