@@ -935,7 +935,7 @@ try {
 await apiPost('/config', { base_path: basePath });
 systemStatus.basePath = basePath;
 } catch (err) {
-showToast('No se pudo guardar la ruta. ' + err.message, 'error');
+showToast('No se pudo guardar la ruta. Revisa la conexion e intenta de nuevo.', 'error');
 return;
 }
 } else {
@@ -960,7 +960,7 @@ await apiPost('/config', { base_path: './data/CURSOS' });
 await apiPost('/courses/create', { course_name: courseName, students });
 showToast(`Curso "${courseName}" creado con ${students.length} alumnos.`, 'success');
 } catch (err) {
-showToast('No se pudo crear el curso. ' + err.message, 'error');
+showToast('No se pudo crear el curso. Verifica la carpeta y los permisos.', 'error');
 setLoading(false);
 return;
 } finally {
@@ -1032,7 +1032,7 @@ navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
 });
 });
 _refreshIcons(container);} catch (err) {
-showToast('No se pudieron cargar los cursos. ' + err.message, 'error');
+showToast('No se pudieron cargar los cursos. Revisa la conexion e intenta de nuevo.', 'error');
 } finally {
 setLoading(false);
 }
@@ -1057,7 +1057,7 @@ updateHelpButton('dashboard');
 currentHelpScreen = 'dashboard';
 navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
 } catch (err) {
-showToast('No se pudo abrir el curso. ' + err.message, 'error');
+showToast('No se pudo abrir el curso. Verifica que la carpeta exista.', 'error');
 } finally {
 setLoading(false);
 }
@@ -1386,7 +1386,7 @@ sessionReports[existingIndex] = reportData;
 sessionReports.push(reportData);
 }
 } catch (err) {
-showToast('No se pudo cargar el informe. ' + err.message, 'error');
+showToast('No se pudo cargar el informe. Intenta de nuevo.', 'error');
 return;
 }
 }
@@ -1407,7 +1407,7 @@ const refreshed = await apiGet(`/courses/${encodeURIComponent(selectedCourse)}/s
 courseSessions[selectedCourse] = refreshed;
 await renderDashboard();
 } catch (err) {
-showToast('No se pudieron borrar las respuestas. ' + err.message, 'error');
+showToast('No se pudieron borrar las respuestas. Intenta de nuevo.', 'error');
 }
 } else if (action === 'wizard') {
 closeStudentDrawer();
@@ -1437,7 +1437,7 @@ try {
 await apiPost(`/courses/${encodeURIComponent(selectedCourse)}/questionnaire`, { questionnaire_id: qid });
 await loadQuestionnaireForCourse(selectedCourse);
 } catch (err) {
-showToast('No se pudo cambiar el cuestionario activo. ' + err.message, 'error');
+showToast('No se pudo cambiar el cuestionario. Intenta de nuevo.', 'error');
 }
 };
 } catch (err) {
@@ -1533,7 +1533,7 @@ async function saveSidebarContents() {
  updateSaveContentsButton();
  showToast('Contenidos guardados.', 'success');
  } catch (err) {
- showToast('No se pudieron guardar los contenidos. ' + err.message, 'error');
+ showToast('No se pudieron guardar los contenidos. Intenta de nuevo.', 'error');
  } finally {
  setLoading(false);
  }
@@ -1601,13 +1601,13 @@ const codigo = (obs.codigo || '').toString().toUpperCase();
 return `
 <div class="obs-row" data-index="${i}">
 <input type="text" class="obs-fecha" value="${obs.fecha || ''}" placeholder="15/3">
-<select class="obs-codigo">
-<option value="" ${codigo === '' ? 'selected' : ''}></option>
-<option value="P" ${codigo === 'P' ? 'selected' : ''}>P</option>
-<option value="A" ${codigo === 'A' ? 'selected' : ''}>A</option>
-<option value="P-EXC" ${codigo === 'P-EXC' ? 'selected' : ''}>P-EXC</option>
-<option value="P-X" ${codigo === 'P-X' ? 'selected' : ''}>P-X</option>
-<option value="T" ${codigo === 'T' ? 'selected' : ''}>T</option>
+<select class="obs-codigo" aria-label="Codigo de observacion">
+<option value="" ${codigo === '' ? 'selected' : ''}>Seleccionar</option>
+<option value="P" ${codigo === 'P' ? 'selected' : ''} aria-label="P: Presente">P</option>
+<option value="A" ${codigo === 'A' ? 'selected' : ''} aria-label="A: Ausente">A</option>
+<option value="P-EXC" ${codigo === 'P-EXC' ? 'selected' : ''} aria-label="P-EXC: Presente Excelente">P-EXC</option>
+<option value="P-X" ${codigo === 'P-X' ? 'selected' : ''} aria-label="P-X: Presente sin material">P-X</option>
+<option value="T" ${codigo === 'T' ? 'selected' : ''} aria-label="T: Tardanza">T</option>
 </select>
 <input type="text" class="obs-comentario" value="${obs.comentario || ''}" placeholder="Comentario">
 <button class="btn-remove-row" data-index="${i}"><i data-lucide="x" style="width:14px;height:14px;"></i></button>
@@ -1692,7 +1692,7 @@ absences: absences
 hide($('observations-panel'));
 startQuestionnaireForCurrentStudent();
 } catch (err) {
-showToast('No se pudieron guardar las observaciones. ' + err.message, 'error');
+showToast('No se pudieron guardar las observaciones. Intenta de nuevo.', 'error');
 } finally {
 setLoading(false);
 }
@@ -1798,7 +1798,18 @@ currentQuestionIndex = index;
 const q = currentQuestions[index];
 const savedValue = questionnaireAnswers[index];
 const pct = ((index + 1) / totalQuestions) * 100;
-$('question-progress-fill').style.width = `${pct}%`;
+const fillEl = $('question-progress-fill');
+const prevPct = parseFloat(fillEl.style.width) || 0;
+if (pct < prevPct) {
+fillEl.style.transition = 'none';
+fillEl.style.width = `${pct}%`;
+fillEl.offsetHeight;
+fillEl.style.transition = '';
+} else {
+fillEl.style.width = `${pct}%`;
+}
+fillEl.setAttribute('aria-valuenow', Math.round(pct));
+fillEl.classList.toggle('complete', pct >= 100);
 $('question-counter').textContent = `Pregunta ${index + 1} de ${totalQuestions}`;
 $('question-section-header').textContent = _getSectionDisplayName(q.section);
 const title = _getQuestionTitle(q);
@@ -1842,6 +1853,7 @@ btn.className = 'answer-btn';
 const iconName = _getOptionIcon(q.answer_type, i);
 const iconHtml = iconName ? `<span class="btn-icon">${icon(iconName, 20)}</span>` : '';
 btn.innerHTML = `${iconHtml}<span class="btn-text">${_cleanLabel(q.labels[i])}</span>`;
+btn.dataset.value = opt;
 if (savedValue === opt || savedValue === q.labels[i]) btn.classList.add('selected');
 btn.addEventListener('click', () => handleAnswer(opt));
 optionsContainer.appendChild(btn);
@@ -1849,19 +1861,27 @@ optionsContainer.appendChild(btn);
 }
 _refreshIcons(optionsContainer);
 $('prev-question-btn').disabled = index === 0;
-if (index === 0) {
-hide($('prev-question-btn'));
-} else {
 show($('prev-question-btn'));
 }
-}
 function handleAnswer(value) {
+if (handleAnswer._pending) {
+clearTimeout(handleAnswer._pending);
+handleAnswer._pending = null;
+}
 questionnaireAnswers[currentQuestionIndex] = value;
+const allBtns = document.querySelectorAll('.answer-btn');
+allBtns.forEach(b => {
+if (b.dataset.value === value) b.classList.add('selected');
+else b.classList.remove('selected');
+});
+handleAnswer._pending = setTimeout(() => {
+handleAnswer._pending = null;
 if (currentQuestionIndex >= totalQuestions - 1) {
 finishQuestionnaire();
 } else {
 renderQuestion(currentQuestionIndex + 1);
 }
+}, 350);
 }
 function skipQuestion() {
 if (currentQuestionIndex >= totalQuestions - 1) {
@@ -1898,7 +1918,7 @@ courseSessions[selectedCourse] = session;
 showToast('Cuestionario guardado.', 'success');
 hideWizard();
 } catch (err) {
-showToast('No se pudo guardar el cuestionario. ' + err.message, 'error');
+showToast('No se pudo guardar el cuestionario. Intenta de nuevo.', 'error');
 } finally {
 setLoading(false);
 }
@@ -2260,7 +2280,7 @@ a.click();
 document.body.removeChild(a);
 URL.revokeObjectURL(url);
 } catch (err) {
-showToast('No se pudo descargar el informe. ' + err.message, 'error');
+showToast('No se pudo descargar el informe. Intenta de nuevo.', 'error');
 }
 }
 function downloadReport() {
@@ -2550,7 +2570,7 @@ setupQuestionnaireForCurrentStudent();
 	if (btnNew) btnNew.innerHTML = '<i data-lucide=\'plus\' style=\'width:16px;height:16px;\'></i> Nuevo curso';
 	renderSidebarCourses();
 	} catch (err) {
-	showToast('No se pudo crear el curso. ' + err.message, 'error');
+	showToast('No se pudo crear el curso. Verifica la carpeta y los permisos.', 'error');
 	} finally { setLoading(false); }
 	}
 	
@@ -2602,7 +2622,7 @@ setLoading(true);
 const data = await apiGet('/pick-folder');
 setLoading(false);
 if (data.error) {
-showToast('No se pudo abrir el selector. ' + data.error, 'error');
+showToast('No se pudo abrir el selector. Intenta de nuevo.', 'error');;
 return;
 }
 if (data.cancelled) {
@@ -2615,7 +2635,7 @@ $('base-path').focus();
 }
 } catch (err) {
 setLoading(false);
-showToast('No se pudo abrir el selector. ' + err.message, 'error');
+showToast('No se pudo abrir el selector. Intenta de nuevo.', 'error');
 }
 });
  $('btn-back-to-menu').addEventListener('click', openCoursesMenu);
@@ -3091,7 +3111,7 @@ setLoading(true);
 const data = await apiGet('/pick-folder');
 setLoading(false);
 if (data.error) {
-showToast('No se pudo abrir el selector. ' + data.error, 'error');
+showToast('No se pudo abrir el selector. Intenta de nuevo.', 'error');;
 return;
 }
 if (data.cancelled || !data.path) {
@@ -3105,7 +3125,7 @@ loadCoursesGrid();
 }
 } catch (err) {
 setLoading(false);
-showToast('No se pudo cambiar la carpeta. ' + err.message, 'error');
+showToast('No se pudo cambiar la carpeta. Intenta de nuevo.', 'error');
 }
 }
 let editingQuestionnaireId = null;
@@ -3295,7 +3315,7 @@ await apiPost('/questionnaires', payload);
 }
 closeQuestionnaireEditor();
 } catch (err) {
-showToast('No se pudo guardar el cuestionario. ' + err.message, 'error');
+showToast('No se pudo guardar el cuestionario. Intenta de nuevo.', 'error');
 } finally {
 setLoading(false);
 }
@@ -3308,7 +3328,7 @@ const newName = data.name + ' (copia)';
 await apiPost(`/questionnaires/${id}/duplicate`, { new_name: newName });
 loadQuestionnairesList();
 } catch (err) {
-showToast('No se pudo duplicar el cuestionario. ' + err.message, 'error');
+showToast('No se pudo duplicar el cuestionario. Intenta de nuevo.', 'error');
 } finally {
 setLoading(false);
 }
@@ -3321,7 +3341,7 @@ try {
 await fetch(`/api/questionnaires/${id}`, { method: 'DELETE' });
 loadQuestionnairesList();
 } catch (err) {
-showToast('No se pudo eliminar el cuestionario. ' + err.message, 'error');
+showToast('No se pudo eliminar el cuestionario. Intenta de nuevo.', 'error');
 } finally {
 setLoading(false);
 }

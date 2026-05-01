@@ -519,6 +519,12 @@
 
         <!-- ====== Wizard: 3 Pasos ====== -->
         <div id="wizard" class="hidden">
+            <!-- Sticky student header (persiste entre pasos 1-2) -->
+            <div id="questionnaire-sticky-header" class="sticky-header">
+                <div id="sticky-student-name" class="sticky-student-name"></div>
+                <div id="sticky-student-counter" class="sticky-student-counter"></div>
+            </div>
+
             <!-- Barra de progreso -->
             <nav id="progress-bar">
                 <div class="step active" data-step="1" title="Cuestionario"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
@@ -528,20 +534,13 @@
 
             <!-- Paso 1: Cuestionario -->
             <section id="step-1" class="step-content active">
-                <!-- Sticky header -->
-                <div id="questionnaire-sticky-header" class="sticky-header">
-                    <div id="sticky-student-name" class="sticky-student-name"></div>
-                    <div id="sticky-student-counter" class="sticky-student-counter"></div>
-                </div>
 
-                <div id="wizard-substep-label" style="text-align:center;margin-bottom:12px;font-size:0.8125rem;color:var(--text-muted);font-weight:500;">
-                    Paso 1a: Observaciones y asistencia
-                </div>
+                <div id="wizard-substep-label" class="wizard-substep-label" role="status" aria-live="polite">Paso 1a: Observaciones y asistencia</div>
 
-                <div class="question-progress-bar">
-                    <div id="question-progress-fill" class="question-progress-fill" style="width: 0%"></div>
-                </div>
                 <div id="question-counter" class="question-counter">Pregunta 1 / 19</div>
+                <div class="question-progress-bar">
+                    <div id="question-progress-fill" class="question-progress-fill" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso del cuestionario"></div>
+                </div>
 
                 <!-- Panel de observaciones -->
                 <div id="observations-panel" class="hidden">
@@ -554,7 +553,7 @@
                     </div>
 
                     <!-- Asistencia -->
-                    <div id="obs-attendance-inputs" style="background: var(--surface-subtle); padding: var(--space-4); border-radius: var(--radius-lg); margin-bottom: var(--space-4); border: 2px solid var(--border-default);">
+                    <div id="obs-attendance-inputs" style="background: var(--surface-subtle); padding: var(--space-4); border-radius: var(--radius-lg); margin-bottom: var(--space-4);">
                         <h4 style="margin-top: 0; font-size: 1rem;">Asistencia</h4>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
                             <div>
@@ -583,6 +582,9 @@
                     </div>
 
                     <!-- Tabla de observaciones -->
+                    <p class="hint obs-code-legend" style="margin-bottom:var(--space-3);line-height:1.6">
+                        <strong>Codigos:</strong> P = Presente, A = Ausente, P-EXC = Presente Excelente, P-X = Presente sin material, T = Tardanza
+                    </p>
                     <div class="obs-table-container">
                         <div class="obs-table-header" style="grid-template-columns: 100px 90px 1fr 40px;">
                             <span>Fecha</span>
@@ -597,7 +599,7 @@
 
                 <!-- Tarjeta de pregunta -->
                 <div id="question-card" class="question-card">
-                    <div id="question-section-header" class="question-section-header"></div>
+                    <h3 id="question-section-header" class="question-section-header"></h3>
                     <div id="question-title-label" class="question-title-label"></div>
                     <div id="current-question-text" class="question-text-large"></div>
                     <div id="current-question-options" class="answer-buttons"></div>
@@ -622,15 +624,15 @@
                     <label>Modelo de IA:</label>
                     <div id="model-cards"></div>
                     <div id="model-cards-extra" class="hidden"></div>
-                    <button id="btn-show-more-models" class="btn-secondary btn-sm hidden">Ver mas modelos</button>
+                    <button id="btn-show-more-models" class="btn-secondary btn-sm hidden" aria-label="Ver mas modelos">Ver mas modelos</button>
                     <p id="model-description" class="model-description"></p>
                 </div>
 
                 <h3>Variante del Informe</h3>
                 <div id="variants-list"></div>
                 <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
-                    <button id="btn-step-2" class="btn-primary">Generar Informe</button>
-                    <button id="btn-back-to-questionnaire" class="btn-secondary">Volver al cuestionario</button>
+                    <button id="btn-step-2" class="btn-primary" aria-label="Generar informe">Generar Informe</button>
+                    <button id="btn-back-to-questionnaire" class="btn-secondary" aria-label="Volver al cuestionario">Volver al cuestionario</button>
                 </div>
             </section>
 
