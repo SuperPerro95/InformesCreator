@@ -231,11 +231,17 @@ class LauncherApp(tk.Tk):
                 text=True,
                 creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
             )
+            if proc.stdout is None:
+                self._update_status(
+                    "❌ Error iniciando ollama pull", "#dc2626",
+                    "No se pudo capturar la salida del comando"
+                )
+                return
             for line in proc.stdout:
                 line = line.strip()
                 if line:
-                    self.after(0, lambda l=line: self.detail_lbl.config(text=l))
-            proc.wait(timeout=600)
+                    self.after(0, lambda t=line: self.detail_lbl.config(text=t))
+            proc.wait(timeout=1800)
             if proc.returncode != 0:
                 # Probar si es error de auth
                 try:

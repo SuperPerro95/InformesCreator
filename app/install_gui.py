@@ -788,6 +788,10 @@ class InstallWizard(tk.Tk):
                         widget.config(state=tk.DISABLED)
         self.after(0, _do)
 
+    def _safe_update_detail(self, text):
+        """Actualiza el label de detalle de forma segura desde un thread."""
+        self.after(0, lambda t=text: self.model_detail_lbl.config(text=t))
+
     def _pull_single(self, model):
         try:
             if not self.ollama_cmd:
@@ -813,23 +817,38 @@ class InstallWizard(tk.Tk):
                     creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
                 )
 
+            if proc.stdout is None:
+                raise RuntimeError("No se pudo capturar la salida del comando ollama pull")
+
             output_lines = []
             for line in proc.stdout:
                 line = line.strip()
                 if line:
                     output_lines.append(line)
-                    self.after(0, lambda l=line: self.model_detail_lbl.config(text=l))
+                    self._safe_update_detail(line)
 
-            proc.wait(timeout=600)
+            proc.wait(timeout=1800)
             output_text = "\n".join(output_lines)
             auth_error = "401" in output_text or "Unauthorized" in output_text or "unauthorized" in output_text
             if proc.returncode != 0:
                 if auth_error:
                     raise RuntimeError("Se requiere iniciar sesion en Ollama Cloud")
-                raise RuntimeError(f"ollama pull fallo para {model} con codigo {proc.returncode}")
+                # Incluir ultimas lineas del output para debug
+                last_lines = " | ".join(output_lines[-3:]) if output_lines else "sin salida"
+                raise RuntimeError(f"ollama pull fallo (codigo {proc.returncode}). Ultimas lineas: {last_lines}")
 
             self.after(0, self._check_model)
 
+        except subprocess.TimeoutExpired:
+            self.after(0, lambda: (
+                self.model_status_lbl.config(
+                    text=f"⏱️ Descarga de {model} excedio el tiempo limite (30 min)", fg="#dc2626"
+                ),
+                self.model_detail_lbl.config(
+                    text="La conexion es muy lenta o el modelo es muy grande. Intenta de nuevo o usa otro modelo."
+                ),
+                self._check_model(),
+            ))
         except Exception as e:
             err_msg = str(e)
             if "Se requiere iniciar sesion" in err_msg:
@@ -884,12 +903,15 @@ class InstallWizard(tk.Tk):
                     creationflags=subprocess.CREATE_NO_WINDOW if sys.platform == "win32" else 0,
                 )
 
+            if proc.stdout is None:
+                raise RuntimeError("No se pudo capturar la salida del comando ollama pull")
+
             for line in proc.stdout:
                 line = line.strip()
                 if line:
-                    self.after(0, lambda l=line: self.model_detail_lbl.config(text=l))
+                    self._safe_update_detail(line)
 
-            proc.wait(timeout=600)
+            proc.wait(timeout=1800)
             if proc.returncode != 0:
                 raise RuntimeError(f"ollama pull fallo con codigo {proc.returncode}")
 
@@ -900,6 +922,16 @@ class InstallWizard(tk.Tk):
                 self._check_model(),
             ))
 
+        except subprocess.TimeoutExpired:
+            self.after(0, lambda: (
+                self.model_status_lbl.config(
+                    text=f"⏱️ Descarga de {model} excedio el tiempo limite (30 min)", fg="#dc2626"
+                ),
+                self.model_detail_lbl.config(
+                    text="La conexion es muy lenta o el modelo es muy grande. Intenta de nuevo o usa otro modelo."
+                ),
+                self.btn_install_local.config(state=tk.NORMAL, text="Reintentar"),
+            ))
         except Exception as e:
             self.after(0, lambda: (
                 self.model_status_lbl.config(
