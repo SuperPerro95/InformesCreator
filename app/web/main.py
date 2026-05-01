@@ -14,8 +14,10 @@ import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 # Agregar raíz del proyecto al path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
@@ -59,9 +61,21 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="InformesCreator API",
     description="API para generación de informes de avance escolares",
-    version="0.5.1",
+    version="0.5.2",
     lifespan=lifespan,
 )
+
+IMMUTABLE_EXTENSIONS = {'.css', '.js', '.png', '.webp', '.ico', '.woff2'}
+
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        response: Response = await call_next(request)
+        ext = os.path.splitext(request.url.path)[1].lower()
+        if ext in IMMUTABLE_EXTENSIONS:
+            response.headers['Cache-Control'] = 'public, max-age=31536000, immutable'
+        return response
+
+app.add_middleware(CacheControlMiddleware)
 
 # Montar API en /api
 app.include_router(api_router, prefix="/api")
