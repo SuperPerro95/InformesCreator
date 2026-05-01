@@ -2428,20 +2428,38 @@ setTimeout(function() {
 	async function renderSidebarCourses() {
 	const list = $('sidebar-courses-list');
 	if (!list) return;
+	const countEl = $('sidebar-course-count');
+	const emptyEl = $('sidebar-empty');
 	try {
 	const data = await apiGet('/courses');
 	const courses = data.courses || [];
+	if (countEl) countEl.textContent = courses.length;
+	if (courses.length === 0) {
+	list.innerHTML = '';
+	if (emptyEl) emptyEl.classList.remove('hidden');
+	} else {
+	if (emptyEl) emptyEl.classList.add('hidden');
 	list.innerHTML = courses.map(c => {
 	const name = c.name || c;
-	const count = c.student_count || 0;
+	const total = c.student_count || 0;
+	const completed = c.completed_count || 0;
+	const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+	const completeClass = pct >= 100 ? ' complete' : '';
 	const active = selectedCourse === name ? ' active' : '';
-	return `<div class="sidebar-course-item${active}" data-course="${name.replace(/"/g, '&quot;')}" onclick="navigateToCourse('${name.replace(/'/g, "\\'")}')">
-	<i data-lucide="users" class="course-icon" style="width:16px;height:16px;"></i>
-	<span class="course-label">${name}</span>
-	<span class="sidebar-course-badge">${count}</span>
+	return `<div class="sidebar-course-item${active}" data-course="${name.replace(/"/g, '&quot;')}" onclick="navigateToCourse('${name.replace(/'/g, "\\'")}')" tabindex="0" role="button" aria-pressed="${selectedCourse === name}">
+	<div class="sidebar-course-top">
+	<span class="sidebar-course-name">${name}</span>
+	<span class="sidebar-course-badge">${total}</span>
+	</div>
+	<div class="sidebar-course-progress">
+	<div class="sidebar-course-progress-bar">
+	<div class="sidebar-course-progress-fill${completeClass}" style="width:${total > 0 ? pct : 0}%"></div>
+	</div>
+	<span class="sidebar-course-progress-text">${completed}/${total}</span>
+	</div>
 	</div>`;
 	}).join('');
-	_refreshIcons(list);
+	}
 	} catch (err) {
 	console.error('Error loading sidebar courses:', err);
 	}
@@ -2670,7 +2688,12 @@ setTimeout(function() {
 	const createForm = $('sidebar-create-course');
 	const btnNew = $('btn-sidebar-new-course');
 	if (createForm) hide(createForm);
-	if (btnNew) btnNew.innerHTML = '<i data-lucide=\'plus\' style=\'width:16px;height:16px;\'></i> Nuevo curso';
+	if (btnNew) {
+	btnNew.classList.remove('adding');
+	btnNew.setAttribute('aria-label', 'Nuevo curso');
+	btnNew.innerHTML = '<i data-lucide="plus" style="width:18px;height:18px;"></i>';
+	if (window.lucide) lucide.createIcons({ nodes: [btnNew] });
+	}
 	renderSidebarCourses();
 	} catch (err) {
 	showToast('No se pudo crear el curso. Verifica la carpeta y los permisos.', 'error');
@@ -2944,8 +2967,19 @@ initAuth();
 	const createForm = $('sidebar-create-course');
 	if (btnNew && createForm) {
 	btnNew.addEventListener('click', () => {
-	if (createForm.classList.contains('hidden')) { show(createForm); btnNew.textContent = 'Cancelar'; }
-	else { hide(createForm); btnNew.innerHTML = '<i data-lucide=\'plus\' style=\'width:16px;height:16px;\'></i> Nuevo curso'; }
+	if (createForm.classList.contains('hidden')) {
+	show(createForm);
+	btnNew.classList.add('adding');
+	btnNew.setAttribute('aria-label', 'Cancelar');
+	btnNew.innerHTML = '<i data-lucide="x" style="width:18px;height:18px;"></i>';
+	if (window.lucide) lucide.createIcons({ nodes: [btnNew] });
+	} else {
+	hide(createForm);
+	btnNew.classList.remove('adding');
+	btnNew.setAttribute('aria-label', 'Nuevo curso');
+	btnNew.innerHTML = '<i data-lucide="plus" style="width:18px;height:18px;"></i>';
+	if (window.lucide) lucide.createIcons({ nodes: [btnNew] });
+	}
 	});
 	}
 	const btnCreate = $('btn-sidebar-create-confirm');
@@ -2954,7 +2988,12 @@ initAuth();
 	if (btnCancel) {
 	btnCancel.addEventListener('click', () => {
 	hide(createForm);
-	if (btnNew) btnNew.innerHTML = '<i data-lucide=\'plus\' style=\'width:16px;height:16px;\'></i> Nuevo curso';
+	if (btnNew) {
+	btnNew.classList.remove('adding');
+	btnNew.setAttribute('aria-label', 'Nuevo curso');
+	btnNew.innerHTML = '<i data-lucide="plus" style="width:18px;height:18px;"></i>';
+	if (window.lucide) lucide.createIcons({ nodes: [btnNew] });
+	}
 	});
 	}
 	// Drawer close

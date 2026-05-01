@@ -337,7 +337,17 @@ def list_courses():
             student_count = 0
             if course_path.exists():
                 student_count = len([f for f in course_path.iterdir() if f.suffix == '.md'])
-            courses.append({"name": name, "student_count": student_count})
+            completed_count = 0
+            try:
+                session = get_course_session(name)
+                completed_count = len(session.get("progreso", {}).get("completados", []))
+            except Exception:
+                pass
+            courses.append({
+                "name": name,
+                "student_count": student_count,
+                "completed_count": completed_count,
+            })
         return {"courses": courses}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
