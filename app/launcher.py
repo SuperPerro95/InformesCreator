@@ -27,7 +27,7 @@ def _read_version() -> str:
         vfile = Path(__file__).resolve().parent / "version.txt"
         return vfile.read_text(encoding="utf-8").strip()
     except Exception:
-        return "0.5.3"
+        return "0.5.4"
 
 
 class LauncherApp(tk.Tk):

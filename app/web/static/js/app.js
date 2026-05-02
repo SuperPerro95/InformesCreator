@@ -2521,7 +2521,7 @@ setTimeout(function() {
 	document.querySelectorAll('.list-row.selected').forEach(r => r.classList.remove('selected'));
 	closeStudentDrawer();
 }
-	function openStudentDrawer(index) {
+	async function openStudentDrawer(index) {
 	const student = allStudents[index];
 	if (!student) return;
 	$('student-drawer-name').textContent = student.nombre_completo;
@@ -2529,6 +2529,31 @@ setTimeout(function() {
 	show($('student-drawer'));
 	document.body.style.overflow = 'hidden';
 	$('btn-close-drawer').focus();
+	const textarea = document.getElementById('textarea-student-drawer-content');
+	if (textarea && !textarea.value.trim()) {
+		const reportFilename = getReportFilename(student.nombre_completo);
+		try {
+			const data = await apiGet(`/reports/${encodeURIComponent(selectedCourse)}/${encodeURIComponent(reportFilename)}`);
+			if (data.content) {
+				textarea.value = data.content;
+				const existingIndex = sessionReports.findIndex(r => r.studentIndex === index);
+				const reportData = {
+					studentIndex: index,
+					nombre_completo: student.nombre_completo,
+					filename: student.filename,
+					report_content: data.content,
+					completed: true,
+					variant: null
+				};
+				if (existingIndex >= 0) {
+					sessionReports[existingIndex] = { ...sessionReports[existingIndex], ...reportData };
+				} else {
+					sessionReports.push(reportData);
+				}
+			}
+		} catch (err) {
+		}
+	}
 	}
 	function closeStudentDrawer() {
 	hide($('student-drawer'));
