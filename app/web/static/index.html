@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=11">
+    <link rel="stylesheet" href="/css/style.css?v=13">
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
@@ -23,60 +23,22 @@
         <!-- ====== Overlay: Verificacion Inicial (JS-rendered) ====== -->
         <div id="onboarding-root"></div>
 
-        <!-- ====== Header Global ====== -->
-        <header class="app-header hidden">
-            <div class="header-left">
-                <button id="btn-mobile-sidebar-toggle" class="btn-ghost btn-sm mobile-sidebar-btn" aria-label="Mostrar cursos" style="display:none;">
-                    <i data-lucide="menu" style="width:20px;height:20px;"></i>
-                </button>
-                <img src="/logotipo-informescreator.png" alt="InformesCreator" class="header-logo-img">
-            </div>
-            <div class="header-right">
-                <!-- Menú de usuario con estado integrado -->
-                <div class="header-user-menu">
-                    <button id="btn-user-menu" class="header-user-btn status-pending">
-                        <i data-lucide="user" style="width:16px;height:16px;"></i>
-                        <span id="header-username">Docente</span>
-                        <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
-                    </button>
-                    <div id="user-dropdown" class="user-dropdown hidden">
-                        <!-- Estado del sistema -->
-                        <div id="dropdown-status-section" class="dropdown-status-section">
-                            <div class="dropdown-status-header">
-                                <span id="dropdown-status-dot" class="dropdown-status-dot"></span>
-                                <span id="dropdown-status-text">Verificando...</span>
-                            </div>
-                            <div class="dropdown-path-box">
-                                <span id="dropdown-path-alias" class="dropdown-path-alias">Sin ruta</span>
-                                <span id="dropdown-change-path" class="dropdown-change-path">Cambiar</span>
-                            </div>
-                        </div>
-                        <div class="dropdown-divider"></div>
-                        <a href="#/courses" id="dropdown-courses" class="dropdown-item">
-                            <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
-                        </a>
-                        <a href="#/questionnaires" id="dropdown-questionnaires" class="dropdown-item">
-                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
-                        </a>
-                        <a href="#" id="dropdown-profile" class="dropdown-item">
-                            <i data-lucide="settings" style="width:16px;height:16px;"></i> Configuración
-                        </a>
-                        <a href="#" id="dropdown-help" class="dropdown-item">
-                            <i data-lucide="help-circle" style="width:16px;height:16px;"></i> Ayuda
-                        </a>
-                        <div class="dropdown-divider"></div>
-                        <a href="#" id="dropdown-logout" class="dropdown-item dropdown-danger">
-                            <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesión
-                        </a>
-                    </div>
-                </div>
-            </div>
-        </header>
+        <!-- ====== Header removed: chrome moved to sidebar ====== -->
 
         <!-- ====== Sidebar + Main Layout ====== -->
         <div id="layout-body" class="hidden">
             <!-- Sidebar izquierdo: navegacion de cursos -->
             <aside id="sidebar" class="sidebar">
+                <!-- ZONE 1: Branding + mobile close -->
+                <div class="sidebar-brand">
+                    <img src="/logotipo-informescreator.png" alt="InformesCreator" class="sidebar-logo-img">
+                    <button id="btn-sidebar-close" class="btn-ghost btn-sm sidebar-close-btn" aria-label="Cerrar sidebar" style="display:none;">
+                        <i data-lucide="x" style="width:18px;height:18px;"></i>
+                    </button>
+                </div>
+
+                <!-- ZONE 2: Course nav (collapsible) -->
+                <div id="sidebar-courses-section" class="sidebar-courses-section">
                 <div class="sidebar-header">
                     <div class="sidebar-header-row">
                         <h3 class="sidebar-title">Mis Cursos</h3>
@@ -106,9 +68,57 @@
                     <p>Todavia no hay cursos.</p>
                     <p class="sidebar-empty-hint">Crea tu primer curso para empezar.</p>
                 </div>
+                </div><!-- /#sidebar-courses-section -->
+
+                <!-- ZONE 3: User footer (system status + nav + identity + logout) -->
+                <div class="sidebar-footer">
+                    <div class="sidebar-status" id="sidebar-status">
+                        <span id="sidebar-status-dot" class="dropdown-status-dot"></span>
+                        <span id="sidebar-status-text" class="sidebar-status-text">Verificando...</span>
+                    </div>
+                    <div class="sidebar-folder-row" id="sidebar-folder-row">
+                        <span id="sidebar-path-alias" class="sidebar-path-alias">Sin ruta</span>
+                        <span id="sidebar-change-path" class="sidebar-change-path">Cambiar</span>
+                    </div>
+                    <div class="sidebar-footer-divider"></div>
+                    <nav class="sidebar-nav-links">
+                        <a href="#/courses" id="sidebar-link-courses" class="sidebar-nav-item">
+                            <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
+                        </a>
+                        <a href="#/questionnaires" id="sidebar-link-questionnaires" class="sidebar-nav-item">
+                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
+                        </a>
+                    </nav>
+                    <div class="sidebar-footer-divider"></div>
+                    <div class="sidebar-user-row">
+                        <div class="sidebar-user-avatar">
+                            <i data-lucide="user" style="width:16px;height:16px;"></i>
+                        </div>
+                        <span id="sidebar-username" class="sidebar-username">Docente</span>
+                        <button id="btn-sidebar-user-menu" class="sidebar-user-chevron" aria-label="Menu de usuario">
+                            <i data-lucide="chevron-up" style="width:14px;height:14px;"></i>
+                        </button>
+                    </div>
+                    <div id="sidebar-user-menu-expanded" class="sidebar-user-menu-expanded hidden">
+                        <a href="#" id="sidebar-menu-profile" class="dropdown-item">
+                            <i data-lucide="settings" style="width:16px;height:16px;"></i> Configuración
+                        </a>
+                        <a href="#" id="sidebar-menu-help" class="dropdown-item">
+                            <i data-lucide="help-circle" style="width:16px;height:16px;"></i> Ayuda
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" id="sidebar-menu-logout" class="dropdown-item dropdown-danger">
+                            <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesión
+                        </a>
+                    </div>
+                </div>
             </aside>
 
             <main id="main-content">
+
+                <button id="btn-mobile-sidebar-toggle" class="mobile-menu-fab" aria-label="Mostrar menu" style="display:none;">
+                    <i data-lucide="menu" style="width:20px;height:20px;"></i>
+                </button>
 
                 <div id="courses-grid" class="hidden"></div>
 
@@ -197,8 +207,8 @@
             <div id="dashboard-students-list" class="students-list list-container"></div>
 
             <div class="dashboard-actions">
-                <button id="btn-back-to-menu" class="btn-secondary">Volver a Mis Cursos</button>
-                <button id="btn-download-all" class="btn-primary">Descargar informe completo del curso</button>
+                <button id="btn-back-to-menu" class="btn-ghost">Volver a Mis Cursos</button>
+                <button id="btn-download-all" class="btn-secondary">Descargar informe completo del curso</button>
             </div>
         </div>
 
@@ -330,22 +340,22 @@
 
                 <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
                     <button id="btn-step-2" class="btn-primary" aria-label="Generar informe">Generar Informe</button>
-                    <button id="btn-back-to-questionnaire" class="btn-secondary" aria-label="Volver al cuestionario">Volver al cuestionario</button>
+                    <button id="btn-back-to-questionnaire" class="btn-ghost" aria-label="Volver al cuestionario">Volver al cuestionario</button>
                 </div>
             </section>
 
             <!-- Paso 3: Informe Generado -->
             <section id="step-3" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
                 <h2>Informe Generado</h2>
-                <div id="report-preview" class="report-box" role="region" aria-live="polite" aria-atomic="true" aria-label="Vista previa del informe">
+                <div id="report-preview" class="paper-sheet" role="region" aria-live="polite" aria-atomic="true" aria-label="Vista previa del informe">
                     <p class="hint">Completá los pasos anteriores para generar un informe.</p>
                 </div>
                 <div id="report-actions" class="hidden">
-                    <button id="btn-download" class="btn-primary"><i data-lucide="download" style="width:18px;height:18px;"></i> Descargar</button>
+                    <button id="btn-download" class="btn-secondary"><i data-lucide="download" style="width:18px;height:18px;"></i> Descargar</button>
                     <button id="btn-modify-report" class="btn-secondary"><i data-lucide="sliders-horizontal" style="width:18px;height:18px;"></i> Modificar</button>
-                    <button id="btn-next-student" class="btn-primary"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i> Siguiente</button>
-                    <button id="btn-go-dashboard" class="btn-secondary"><i data-lucide="undo-2" style="width:18px;height:18px;"></i> Dashboard</button>
-                    <button id="btn-finish" class="btn-secondary"><i data-lucide="check" style="width:18px;height:18px;"></i> Finalizar</button>
+                    <button id="btn-next-student" class="btn-primary"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i> Siguiente alumno</button>
+                    <button id="btn-go-dashboard" class="btn-ghost">Dashboard</button>
+                    <button id="btn-finish" class="btn-ghost">Finalizar</button>
                 </div>
                 <div id="customization-panel" class="hidden">
                     <div class="customization-card">
@@ -423,6 +433,6 @@
         </div>
     </div>
 
-    <script type="module" src="/js/app.js?v=13"></script>
+    <script type="module" src="/js/app.js?v=15"></script>
 </body>
 </html>

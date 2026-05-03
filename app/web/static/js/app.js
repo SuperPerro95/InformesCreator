@@ -1,8 +1,7 @@
 import { initParticles } from './particles.js';
 import {
   $, show, hide, showToast, setLoading, refreshIcons,
-  icon, showHelp, hideHelp, updateHelpButton, toggleUserDropdown,
-  closeUserDropdownOutside, closeUserDropdownOnItemClick,
+  icon, showHelp, hideHelp, updateHelpButton,
   renderMarkdownToHtml, showConfirm, escapeHtml,
   hideMainContentScreens, HELP_CONTENT
 } from './utils.js';
@@ -177,9 +176,8 @@ function showWizardFromHash(substep) {
   hideHero();
   hideOnboarding();
   hideMainContentScreens();
-  show($('layout-body'));
   hide($('course-view'));
-  show(document.querySelector('header'));
+  setSidebarMode('full');
   show($('wizard'));
   const stepMap = { config: 2, report: 3 };
   const step = stepMap[substep] || 1;
@@ -338,7 +336,7 @@ export function showHero() {
     bg.classList.remove('hidden');
     bg.style.opacity = '1';
   }
-  hide(document.querySelector('header'));
+  setSidebarMode('hidden');
   if (window.lucide) lucide.createIcons();
   $('btn-hero-start').addEventListener('click', () => {
     if (getAuthState().loggedIn) {
@@ -412,41 +410,64 @@ function updateFolderIndicator(path) {
   updateStatusDot();
 }
 
+export function setSidebarMode(mode) {
+  const layoutBody = $('layout-body');
+  const coursesSection = $('sidebar-courses-section');
+  const mobileFab = $('btn-mobile-sidebar-toggle');
+  if (mode === 'hidden') {
+    hide(layoutBody);
+    if (mobileFab) hide(mobileFab);
+  } else {
+    show(layoutBody);
+    if (mobileFab && window.innerWidth <= 768) show(mobileFab);
+    else if (mobileFab) hide(mobileFab);
+    if (coursesSection) {
+      coursesSection.classList.toggle('collapsed', mode === 'compact');
+    }
+  }
+  updateSidebarNavActive();
+}
+
+export function updateSidebarNavActive() {
+  const hash = window.location.hash || '';
+  const linkCourses = $('sidebar-link-courses');
+  const linkQuestionnaires = $('sidebar-link-questionnaires');
+  if (linkCourses) linkCourses.classList.toggle('active', hash.startsWith('#/course') || hash === '#/courses');
+  if (linkQuestionnaires) linkQuestionnaires.classList.toggle('active', hash.startsWith('#/questionnaire'));
+}
+
 export function updateStatusDot() {
-  const btn = $('btn-user-menu');
-  const ddDot = $('dropdown-status-dot');
-  const ddText = $('dropdown-status-text');
-  const ddAlias = $('dropdown-path-alias');
-  if (!btn) return;
+  const dot = $('sidebar-status-dot');
+  const text = $('sidebar-status-text');
+  const alias = $('sidebar-path-alias');
+  if (!dot && !text) return;
   const st = getSystemStatus();
   const ollamaOk = st.ollamaRunning;
   const folderOk = st.folderOk;
-  let statusLabel, btnClass;
+  let statusLabel, dotClass;
   if (ollamaOk && folderOk) {
-    btnClass = 'status-ok';
+    dotClass = 'ok';
     statusLabel = 'Ollama activo';
   } else if (!ollamaOk && !folderOk) {
-    btnClass = 'status-error';
+    dotClass = 'error';
     statusLabel = 'Problemas detectados';
   } else if (!ollamaOk) {
-    btnClass = 'status-error';
+    dotClass = 'error';
     statusLabel = st.ollamaError || 'Ollama desconectado';
   } else {
-    btnClass = 'status-pending';
+    dotClass = 'pending';
     statusLabel = 'Carpeta no configurada';
   }
-  btn.classList.remove('status-ok', 'status-pending', 'status-error');
-  btn.classList.add(btnClass);
-  if (ddDot) ddDot.className = `dropdown-status-dot ${btnClass.replace('status-', '')}`;
-  if (ddText) ddText.textContent = statusLabel;
-  if (ddAlias) {
+  if (dot) dot.className = `dropdown-status-dot ${dotClass}`;
+  if (text) text.textContent = statusLabel;
+  if (alias) {
     if (st.folderPath) {
-      const alias = st.folderPath.split(/[\\\\/]/).filter(Boolean).pop() || st.folderPath;
-      ddAlias.textContent = alias;
-      ddAlias.title = st.folderPath;
+      const folderAlias = st.folderPath.split(/[\\\\/]/).filter(Boolean).pop() || st.folderPath;
+      alias.textContent = folderAlias;
+      alias.title = st.folderPath;
     } else {
-      ddAlias.textContent = 'Sin ruta';
-      ddAlias.title = '';
+      alias.textContent = 'Sin ruta';
+      alias.title = '';
     }
   }
 }
@@ -558,8 +579,7 @@ async function completeOnboarding() {
   }
   setOnboardingComplete(true);
   hideOnboarding();
-  show(document.querySelector('header'));
-  show($('layout-body'));
+  setSidebarMode('compact');
   show($('courses-grid'));
   renderSidebarCourses();
   loadCoursesGrid();
@@ -597,32 +617,32 @@ export async function loadCoursesGrid() {
       const totalStudents = c.student_count || 0;
       const progressPct = totalStudents > 0 ? Math.round((completedCount / totalStudents) * 100) : 0;
       const hasData = (session.respuestas && Object.keys(session.respuestas).length > 0) || existingReports > 0;
-      const stateClass = existingReports > 0 ? 'has-reports' : (hasData ? 'has-data' : '');
-      const stateBadge = existingReports > 0 ? '<div class="badge badge-success">'+existingReports+' informe(s)</div>' : (hasData ? '<div class="badge badge-warning">Tiene datos guardados</div>' : '');
+      const stateBadge = existingReports > 0
+        ? '<span class="course-list-row-badge"><span class="badge badge-success">'+existingReports+' informe(s)</span></span>'
+        : (hasData ? '<span class="course-list-row-badge"><span class="badge badge-warning">Datos guardados</span></span>' : '');
       return `
-      <div class="course-card ${stateClass}" data-course="${c.name || c}">
+      <div class="course-list-row" data-course="${c.name || c}" tabindex="0" role="link" aria-label="Abrir curso ${c.name || c}">
+      <span class="course-list-row-name">${c.name || c}</span>
       ${stateBadge}
-      <div class="course-card-name">${c.name || c}</div>
-      <div class="course-card-progress">${c.student_count || '?'} alumno(s)${completedCount > 0 ? ' &middot; '+completedCount+' completado(s)' : ''}</div>
-      <div class="course-card-progress-bar">
-      <div class="course-card-progress-fill" style="width: ${progressPct}%"></div>
-      </div>
-      <button class="btn-primary course-card-btn" data-course="${c.name || c}">Entrar</button>
+      <span class="course-list-row-meta">
+      <span class="course-list-row-count">${c.student_count || '?'} alumno(s)${completedCount > 0 ? ' &middot; '+completedCount+' listos' : ''}</span>
+      <span class="course-list-row-minibar"><span class="course-list-row-minifill${progressPct === 100 ? ' complete' : ''}" style="width:${progressPct}%"></span></span>
+      </span>
+      <span class="course-list-row-arrow">${icon('chevron-right', 18)}</span>
       </div>
       `;
     }).join('');
-    container.querySelectorAll('.course-card').forEach(card => {
-      card.addEventListener('click', (e) => {
-        if (e.target.closest('button')) return;
-        const course = card.dataset.course;
+    container.querySelectorAll('.course-list-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const course = row.dataset.course;
         navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
       });
-    });
-    container.querySelectorAll('.course-card-btn').forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        const course = e.currentTarget.dataset.course;
-        navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
+      row.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          const course = row.dataset.course;
+          navigateTo(`#/course/${course.replace(/\s+/g, '-')}`);
+        }
       });
     });
     refreshIcons(container);
@@ -647,7 +667,7 @@ async function openCourse(course) {
     await loadQuestionnaireForCourse(course);
     loadContents(course);
     hideMainContentScreens();
-    show($('layout-body'));
+    setSidebarMode('full');
     show($('course-view'));
     hide($('wizard'));
     $('course-view-title').textContent = course;
@@ -667,7 +687,7 @@ function openCoursesMenu() {
   hide($('wizard'));
   const contentsPanel = $('course-contents-section');
   if (contentsPanel) contentsPanel.classList.add('hidden');
-  show($('layout-body'));
+  setSidebarMode('compact');
   show($('courses-grid'));
   renderSidebarCourses();
   loadCoursesGrid();
@@ -747,11 +767,10 @@ async function initFromHashCourse(course, target, substep) {
     hideHero();
     hideOnboarding();
     hideMainContentScreens();
-    show($('layout-body'));
     hide($('wizard'));
     hide($('questionnaires-screen'));
     hide($('questionnaire-editor'));
-    show(document.querySelector('header'));
+    setSidebarMode('full');
     show($('course-view'));
     $('course-view-title').textContent = course;
     loadContents(course);
@@ -773,9 +792,8 @@ async function handleHashChange() {
     import('./auth.js').then(m => m.showLoginScreen());
     hideHero();
     hideOnboarding();
-    hide(document.querySelector('header'));
+    setSidebarMode('hidden');
     hideMainContentScreens();
-    hide($('layout-body'));
     hide($('course-view'));
     hide($('wizard'));
     hide($('questionnaires-screen'));
@@ -788,9 +806,8 @@ async function handleHashChange() {
     import('./auth.js').then(m => m.showRegisterScreen());
     hideHero();
     hideOnboarding();
-    hide(document.querySelector('header'));
+    setSidebarMode('hidden');
     hideMainContentScreens();
-    hide($('layout-body'));
     hide($('course-view'));
     hide($('wizard'));
     hide($('questionnaires-screen'));
@@ -810,12 +827,11 @@ async function handleHashChange() {
     }
     hideHero();
     hideMainContentScreens();
-    hide($('layout-body'));
+    setSidebarMode('hidden');
     hide($('course-view'));
     hide($('wizard'));
     hide($('questionnaires-screen'));
     hide($('questionnaire-editor'));
-    show(document.querySelector('header'));
     showOnboarding();
     updateHelpButton('onboarding');
     setCurrentHelpScreen('onboarding');
@@ -830,8 +846,7 @@ async function handleHashChange() {
     hide($('wizard'));
     hide($('questionnaires-screen'));
     hide($('questionnaire-editor'));
-    show(document.querySelector('header'));
-    show($('layout-body'));
+    setSidebarMode('compact');
     show($('courses-grid'));
     renderSidebarCourses();
     loadCoursesGrid();
@@ -854,11 +869,10 @@ async function handleHashChange() {
     hideHero();
     hideOnboarding();
     hideMainContentScreens();
-    show($('layout-body'));
     hide($('wizard'));
     hide($('questionnaires-screen'));
     hide($('questionnaire-editor'));
-    show(document.querySelector('header'));
+    setSidebarMode('full');
     show($('course-view'));
     setSelectedCourse(course);
     $('course-view-title').textContent = course;
@@ -898,11 +912,10 @@ async function handleHashChange() {
     hideHero();
     hideOnboarding();
     hideMainContentScreens();
-    show($('layout-body'));
     hide($('course-view'));
     hide($('wizard'));
     hide($('questionnaire-editor'));
-    show(document.querySelector('header'));
+    setSidebarMode('compact');
     show($('questionnaires-screen'));
     import('./questionnaire-editor.js').then(mod => mod.loadQuestionnairesList());
     updateHelpButton('');
@@ -916,11 +929,10 @@ async function handleHashChange() {
     hideHero();
     hideOnboarding();
     hideMainContentScreens();
-    show($('layout-body'));
     hide($('course-view'));
     hide($('wizard'));
     hide($('questionnaires-screen'));
-    show(document.querySelector('header'));
+    setSidebarMode('compact');
     show($('questionnaire-editor'));
     const mod = await import('./questionnaire-editor.js');
     const state = await import('./state.js');
@@ -1134,7 +1146,7 @@ function exportToWindow() {
     openQuestionnaireEditor, saveQuestionnaireEditor, closeQuestionnaireEditor,
     duplicateQuestionnaire, deleteQuestionnaire,
     runOnboarding, updateStatusDot, preloadSystemStatus,
-    completeOnboarding, handleHashChange,
+    completeOnboarding, handleHashChange, setSidebarMode, updateSidebarNavActive,
   });
 }
 
@@ -1328,36 +1340,69 @@ async function init() {
 
   $('btn-download-all').addEventListener('click', () => import('./report.js').then(m => m.downloadAllReports()));
 
-  $('btn-user-menu').addEventListener('click', (e) => {
-    e.stopPropagation();
-    toggleUserDropdown();
-  });
+  // Sidebar footer event bindings
+  const btnSidebarUserMenu = $('btn-sidebar-user-menu');
+  const sidebarUserMenuExpanded = $('sidebar-user-menu-expanded');
+  if (btnSidebarUserMenu && sidebarUserMenuExpanded) {
+    btnSidebarUserMenu.addEventListener('click', (e) => {
+      e.stopPropagation();
+      sidebarUserMenuExpanded.classList.toggle('hidden');
+      const chevron = btnSidebarUserMenu.querySelector('[data-lucide]');
+      if (chevron) {
+        const isHidden = sidebarUserMenuExpanded.classList.contains('hidden');
+        chevron.setAttribute('data-lucide', isHidden ? 'chevron-up' : 'chevron-down');
+        if (window.lucide) lucide.createIcons({ nodes: [btnSidebarUserMenu] });
+      }
+    });
+  }
 
-  $('dropdown-courses').addEventListener('click', (e) => {
-    hide($('user-dropdown'));
-  });
-  $('dropdown-questionnaires').addEventListener('click', (e) => {
-    hide($('user-dropdown'));
-  });
-  $('dropdown-profile').addEventListener('click', (e) => {
-    e.preventDefault();
-    hide($('user-dropdown'));
-    import('./auth.js').then(m => m.openProfileModal());
-  });
-  $('dropdown-help').addEventListener('click', (e) => {
-    e.preventDefault();
-    hide($('user-dropdown'));
-    showHelp(getCurrentHelpScreen());
-  });
-  $('dropdown-logout').addEventListener('click', (e) => {
-    e.preventDefault();
-    hide($('user-dropdown'));
-    import('./auth.js').then(m => m.doLogout());
-  });
-  $('dropdown-change-path').addEventListener('click', (e) => {
-    e.preventDefault();
-    hide($('user-dropdown'));
-    import('./auth.js').then(m => m.openProfileModal());
+  const sidebarMenuProfile = $('sidebar-menu-profile');
+  if (sidebarMenuProfile) {
+    sidebarMenuProfile.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (sidebarUserMenuExpanded) sidebarUserMenuExpanded.classList.add('hidden');
+      import('./auth.js').then(m => m.openProfileModal());
+    });
+  }
+
+  const sidebarMenuHelp = $('sidebar-menu-help');
+  if (sidebarMenuHelp) {
+    sidebarMenuHelp.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (sidebarUserMenuExpanded) sidebarUserMenuExpanded.classList.add('hidden');
+      showHelp(getCurrentHelpScreen());
+    });
+  }
+
+  const sidebarMenuLogout = $('sidebar-menu-logout');
+  if (sidebarMenuLogout) {
+    sidebarMenuLogout.addEventListener('click', (e) => {
+      e.preventDefault();
+      if (sidebarUserMenuExpanded) sidebarUserMenuExpanded.classList.add('hidden');
+      import('./auth.js').then(m => m.doLogout());
+    });
+  }
+
+  const sidebarChangePath = $('sidebar-change-path');
+  if (sidebarChangePath) {
+    sidebarChangePath.addEventListener('click', (e) => {
+      e.preventDefault();
+      import('./auth.js').then(m => m.openProfileModal());
+    });
+  }
+
+  const sidebarLinkCourses = $('sidebar-link-courses');
+  if (sidebarLinkCourses) sidebarLinkCourses.addEventListener('click', () => navigateTo('#/courses'));
+  const sidebarLinkQuestionnaires = $('sidebar-link-questionnaires');
+  if (sidebarLinkQuestionnaires) sidebarLinkQuestionnaires.addEventListener('click', () => navigateTo('#/questionnaires'));
+
+  // FAB visibility on resize
+  window.addEventListener('resize', () => {
+    const fab = $('btn-mobile-sidebar-toggle');
+    const layoutBody = $('layout-body');
+    if (!fab || !layoutBody || layoutBody.classList.contains('hidden')) return;
+    if (window.innerWidth <= 768) show(fab);
+    else hide(fab);
   });
 
   window.addEventListener('hashchange', handleHashChange);
@@ -1421,6 +1466,16 @@ async function init() {
 
   document.addEventListener('keydown', async (e) => {
     if (e.key === 'Escape') {
+      const sidebarUserMenuExpanded = $('sidebar-user-menu-expanded');
+      if (sidebarUserMenuExpanded && !sidebarUserMenuExpanded.classList.contains('hidden')) {
+        sidebarUserMenuExpanded.classList.add('hidden');
+        const chevronBtn = $('btn-sidebar-user-menu');
+        if (chevronBtn) {
+          const chevron = chevronBtn.querySelector('[data-lucide]');
+          if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
+          if (window.lucide) lucide.createIcons({ nodes: [chevronBtn] });
+        }
+      }
       const studentDrawer = document.getElementById('student-drawer');
       if (studentDrawer && !studentDrawer.classList.contains('hidden')) {
         import('./dashboard.js').then(m => m.closeStudentDrawer());
