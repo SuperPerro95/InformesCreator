@@ -7,56 +7,35 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=17">
+    <link rel="stylesheet" href="/css/style.css?v=18">
     <link rel="icon" href="/logotipo-informescreator.png">
     <script>
-        // Early auth check to prevent Hero flash for logged-in users
+        // Early redirect for logged-in users to prevent landing flash
         try {
-            const auth = JSON.parse(localStorage.getItem('informescreator_auth'));
-            if (auth && auth.loggedIn && (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#')) {
+            const a = JSON.parse(localStorage.getItem('informescreator_auth'));
+            if (a && a.loggedIn && (!location.hash || location.hash === '#/' || location.hash === '#')) {
                 document.documentElement.style.display = 'none';
-                window.location.hash = '#/courses';
-                window.addEventListener('DOMContentLoaded', () => {
-                    document.documentElement.style.display = '';
-                });
+                location.hash = '#/courses';
+                addEventListener('DOMContentLoaded', () => document.documentElement.style.display = '');
             }
         } catch (e) {}
     </script>
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
-    <canvas id="bg-particles"></canvas>
     <div id="app">
-        <!-- ====== Landing Stage (Hero + Auth) ====== -->
+        <!-- ====== Unified Landing (Brand + Auth Inline) ====== -->
         <div id="landing-stage" class="landing-stage">
-            <!-- Hero Screen -->
-            <div id="hero-root">
-                <div id="hero-screen" class="hero-screen landing-page">
-                    <div class="lp-header">
-                        <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img">
-                    </div>
-                    <div class="lp-tagline-wrap">
-                        <p class="lp-tagline-main">Tu asistente para escribir informes</p>
-                        <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
-                            <path d="M0,6 Q35,2 70,6 Q105,10 140,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-                        </svg>
-                        <p class="lp-tagline-sub">Sin estrés, a tu ritmo, en tu aula</p>
-                    </div>
-                    <div class="lp-illustration">
-                        <img src="/hero.png" alt="Docente usando InformesCreator con IA" class="lp-illustration-img">
-                    </div>
-                    <div class="lp-hero-buttons">
-                        <button class="lp-btn-primary" id="btn-hero-start">
-                            Comenzar
-                            <i data-lucide="arrow-right" class="lp-btn-icon"></i>
-                        </button>
-                    </div>
-                    <p class="lp-info-hint">Te acompañamos en cada paso</p>
+            <div id="unified-landing" class="unified-landing">
+                <div class="ul-brand">
+                    <img src="/logotipo-informescreator.png" alt="InformesCreator" class="ul-logo">
+                    <h1 class="ul-tagline">Tu asistente para escribir informes</h1>
+                    <p class="ul-sub">Sin estrés, a tu ritmo, en tu aula</p>
+                </div>
+                <div class="ul-auth">
+                    <div id="auth-root"></div>
                 </div>
             </div>
-
-            <!-- Unified Auth Screen -->
-            <div id="auth-root" class="auth-root hidden"></div>
         </div>
 
         <!-- ====== Overlay: Verificacion Inicial (JS-rendered) ====== -->

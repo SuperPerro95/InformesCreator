@@ -46,3 +46,5 @@ dist/
 # Added by code-review-graph
 .code-review-graph/
 .worktrees/
+
+.worktrees/

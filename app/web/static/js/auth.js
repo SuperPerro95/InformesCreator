@@ -2,22 +2,28 @@ import { apiGet, apiPut, apiPost } from './api.js';
 import { $, show, hide, showToast, setLoading, showFieldError, clearFieldErrors, refreshIcons } from './utils.js';
 import { getAuthState, setAuthState, getSystemStatus } from './state.js';
 
-const UNIFIED_AUTH_TEMPLATE = `
+function detectDefaultAuthTab() {
+  // Smart default: show Register if no one has ever logged in, Login otherwise
+  const raw = localStorage.getItem('informescreator_auth');
+  return (raw === null) ? 'register' : 'login';
+}
+
+const UNIFIED_AUTH_TEMPLATE = (defaultTab) => {
+  const loginActive = defaultTab === 'login' ? 'active' : '';
+  const regActive = defaultTab === 'register' ? 'active' : '';
+  const loginHidden = defaultTab !== 'login' ? 'hidden' : '';
+  const regHidden = defaultTab !== 'register' ? 'hidden' : '';
+  return `
   <div class="auth-card">
-    <button class="btn-back-landing" id="btn-back-landing" title="Volver al inicio">
-      <i data-lucide="arrow-left"></i>
-    </button>
     <div class="auth-header">
-      <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img" style="margin: 0 auto 1.5rem; max-height: 40px;">
       <div class="auth-tabs">
-        <button class="auth-tab active" id="tab-login">Ingresar</button>
-        <button class="auth-tab" id="tab-register">Registrarse</button>
+        <button class="auth-tab ${loginActive}" id="tab-login">Ingresar</button>
+        <button class="auth-tab ${regActive}" id="tab-register">Registrarse</button>
       </div>
     </div>
 
     <div class="auth-form-container">
-      <!-- Login Pane -->
-      <div id="pane-login" class="auth-form-pane">
+      <div id="pane-login" class="auth-form-pane ${loginHidden}">
         <form id="login-form" class="auth-form" novalidate>
           <div class="auth-field">
             <label for="login-username">Usuario</label>
@@ -29,20 +35,19 @@ const UNIFIED_AUTH_TEMPLATE = `
             <div class="auth-input-wrap">
               <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" minlength="4" required>
               <button type="button" class="btn-toggle-password" data-target="login-password" aria-label="Mostrar contraseña">
-                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                <i data-lucide="eye"></i>
               </button>
             </div>
             <p class="auth-field-error" id="login-password-error" role="alert"></p>
           </div>
-          <button type="submit" id="btn-login" class="lp-btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+          <button type="submit" id="btn-login" class="auth-btn">
             Entrar
           </button>
-          <p id="login-error" class="auth-form-error" role="alert" style="text-align: center;"></p>
+          <p id="login-error" class="auth-form-error" role="alert"></p>
         </form>
       </div>
 
-      <!-- Register Pane -->
-      <div id="pane-register" class="auth-form-pane hidden">
+      <div id="pane-register" class="auth-form-pane ${regHidden}">
         <form id="register-form" class="auth-form" novalidate>
           <div class="auth-field">
             <label for="reg-username">Usuario</label>
@@ -58,7 +63,7 @@ const UNIFIED_AUTH_TEMPLATE = `
             <div class="auth-input-wrap">
               <input type="password" id="reg-password" placeholder="Elegí una contraseña" autocomplete="new-password" minlength="4" required>
               <button type="button" class="btn-toggle-password" data-target="reg-password" aria-label="Mostrar contraseña">
-                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                <i data-lucide="eye"></i>
               </button>
             </div>
             <p class="auth-field-error" id="reg-password-error" role="alert"></p>
@@ -68,20 +73,21 @@ const UNIFIED_AUTH_TEMPLATE = `
             <div class="auth-input-wrap">
               <input type="password" id="reg-password-confirm" placeholder="Repetí la contraseña" autocomplete="new-password" minlength="4" required>
               <button type="button" class="btn-toggle-password" data-target="reg-password-confirm" aria-label="Mostrar contraseña">
-                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+                <i data-lucide="eye"></i>
               </button>
             </div>
             <p class="auth-field-error" id="reg-password-confirm-error" role="alert"></p>
           </div>
-          <button type="submit" id="btn-register" class="lp-btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+          <button type="submit" id="btn-register" class="auth-btn">
             Crear perfil
           </button>
-          <p id="register-error" class="auth-form-error" role="alert" style="text-align: center;"></p>
+          <p id="register-error" class="auth-form-error" role="alert"></p>
         </form>
       </div>
     </div>
   </div>
 `;
+};
 
 function bindAuthListeners() {
   const loginForm = $('login-form');
@@ -113,15 +119,6 @@ function bindAuthListeners() {
   if (tabLogin) tabLogin.addEventListener('click', () => switchTab('login'));
   if (tabRegister) tabRegister.addEventListener('click', () => switchTab('register'));
 
-  const btnBack = $('btn-back-landing');
-  if (btnBack) btnBack.addEventListener('click', () => {
-    const stage = $('landing-stage');
-    if (stage) stage.classList.remove('show-auth');
-    setTimeout(() => {
-      navigateTo('#/');
-    }, 400);
-  });
-
   ['login-username', 'login-password', 'reg-username', 'reg-password', 'reg-password-confirm'].forEach(id => {
     const el = $(id);
     if (!el) return;
@@ -143,7 +140,7 @@ function bindAuthListeners() {
       if (!input) return;
       const isPassword = input.type === 'password';
       input.type = isPassword ? 'text' : 'password';
-      const icon = btn.querySelector('i');
+      const icon = btn.querySelector('i, svg');
       if (icon && window.lucide) {
         icon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
         lucide.createIcons({ nodes: [btn] });
@@ -160,22 +157,19 @@ export function showRegisterScreen() {
   renderAuthCard('register');
 }
 
-function renderAuthCard(mode = 'login') {
+export function renderAuthCard(mode) {
   const root = $('auth-root');
   if (!root) return;
   
   if (root.innerHTML === '' || !root.querySelector('.auth-card')) {
-    root.innerHTML = UNIFIED_AUTH_TEMPLATE;
+    root.innerHTML = UNIFIED_AUTH_TEMPLATE(mode || detectDefaultAuthTab());
     bindAuthListeners();
   }
   
   const stage = $('landing-stage');
   if (stage) {
+    stage.classList.remove('hidden');
     root.classList.remove('hidden');
-    // Ensure display:flex is applied before animation
-    requestAnimationFrame(() => {
-      stage.classList.add('show-auth');
-    });
   }
 
   const tabLogin = $('tab-login');
@@ -200,14 +194,14 @@ function renderAuthCard(mode = 'login') {
 
 export function clearAuthScreen() {
   const stage = $('landing-stage');
-  if (stage) stage.classList.remove('show-auth');
+  if (stage) stage.classList.add('hidden');
   const root = $('auth-root');
   if (root) setTimeout(() => { root.innerHTML = ''; }, 400);
 }
 
 export function hideAuthScreen() {
   const stage = $('landing-stage');
-  if (stage) stage.classList.remove('show-auth');
+  if (stage) stage.classList.add('hidden');
   const root = $('auth-root');
   if (root) setTimeout(() => { root.classList.add('hidden'); }, 400);
 }

@@ -1,4 +1,3 @@
-import { initParticles } from './particles.js';
 import {
   $, show, hide, showToast, setLoading, refreshIcons,
   icon, showHelp, hideHelp, updateHelpButton,
@@ -316,82 +315,22 @@ export function hideOnboarding() {
   if (root) root.innerHTML = '';
 }
 
-const HERO_SCREEN_TEMPLATE = `
-  <div id="hero-screen" class="hero-screen landing-page">
-    <div class="lp-header">
-      <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img">
-    </div>
-    <div class="lp-tagline-wrap">
-      <p class="lp-tagline-main">Tu asistente para escribir informes</p>
-      <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
-        <path d="M0,6 Q35,2 70,6 Q105,10 140,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-      </svg>
-      <p class="lp-tagline-sub">Sin estres, a tu ritmo, en tu aula</p>
-    </div>
-    <div class="lp-illustration">
-      <img src="/hero.png" alt="Docente usando InformesCreator con IA" class="lp-illustration-img">
-    </div>
-    <div class="lp-hero-buttons">
-      <button class="lp-btn-primary" id="btn-hero-start">
-        Comenzar
-        <i data-lucide="arrow-right" class="lp-btn-icon"></i>
-      </button>
-    </div>
-    <p class="lp-info-hint">Te acompanamos en cada paso</p>
-  </div>
-`;
-
 export function showHero() {
   hideMainContentScreens();
   const stage = $('landing-stage');
-  if (stage) {
-    stage.classList.remove('hidden');
-    stage.classList.remove('show-auth');
-  }
+  if (stage) stage.classList.remove('hidden');
 
-  const heroRoot = $('hero-root');
-  if (heroRoot) heroRoot.classList.remove('hidden');
-  
-  const hero = document.getElementById('hero-screen');
-  if (hero) {
-    hero.classList.remove('hidden');
-    hero.style.opacity = '1';
-    hero.style.pointerEvents = 'auto';
-  }
-  
+  import('./auth.js').then(m => m.renderAuthCard());
+
   if (window.lucide) lucide.createIcons();
-  
-  const btnStart = $('btn-hero-start');
-  if (btnStart) {
-    btnStart.onclick = () => {
-      if (getAuthState().loggedIn) {
-        navigateTo('#/courses');
-      } else {
-        navigateTo('#/login');
-      }
-    };
-  }
-  
-  const particles = $('bg-particles');
-  if (particles) particles.classList.remove('hidden');
 }
 
 export function hideHero() {
   const stage = $('landing-stage');
-  const hero = document.getElementById('hero-screen');
-  
-  if (hero) {
-    hero.style.opacity = '0';
-    hero.style.pointerEvents = 'none';
-  }
 
-  // If we are not going to auth, hide the whole stage
+  // Keep the stage visible when on auth routes (it IS the landing)
   if (!window.location.hash.includes('login') && !window.location.hash.includes('register')) {
     if (stage) stage.classList.add('hidden');
-    const heroRoot = $('hero-root');
-    if (heroRoot) heroRoot.classList.add('hidden');
-    const particles = $('bg-particles');
-    if (particles) particles.classList.add('hidden');
   }
 }
 
@@ -1182,7 +1121,6 @@ if (document.readyState === 'loading') {
 
 async function init() {
   exportToWindow();
-  initParticles();
 
   if (window.lucide) {
     lucide.createIcons();
