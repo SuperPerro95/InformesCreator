@@ -1,0 +1,48 @@
+# Entornos virtuales
+.venv/
+venv/
+env/
+
+# Datos de usuario (nunca se suben)
+user_data/
+Informes/
+
+# Cache Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+
+# Distribuciones
+InformesCreator_Windows.zip
+InformesCreator_update_*.zip
+
+# IDEs y OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Archivos temporales
+*.tmp
+*.bak
+*.log
+
+# Archivos del entorno de desarrollo
+.claude/
+.playwright-mcp/
+.coverage
+*.Zone.Identifier
+# Added by code-review-graph
+.code-review-graph/
+.worktrees/

@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>InformesCreator</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/style.css?v=11">
+    <script src="https://unpkg.com/lucide@latest" defer></script>
+</head>
+<body>
+    <div id="hero-bg"></div>
+    <canvas id="bg-particles"></canvas>
+    <div id="app">
+        <!-- ====== Auth Screen (JS-rendered) ====== -->
+        <div id="auth-root"></div>
+
+        <!-- ====== Hero Screen (JS-rendered) ====== -->
+        <div id="hero-root"></div>
+
+        <!-- ====== Overlay: Verificacion Inicial (JS-rendered) ====== -->
+        <div id="onboarding-root"></div>
+
+        <!-- ====== Header Global ====== -->
+        <header class="app-header hidden">
+            <div class="header-left">
+                <button id="btn-mobile-sidebar-toggle" class="btn-ghost btn-sm mobile-sidebar-btn" aria-label="Mostrar cursos" style="display:none;">
+                    <i data-lucide="menu" style="width:20px;height:20px;"></i>
+                </button>
+                <img src="/logotipo-informescreator.png" alt="InformesCreator" class="header-logo-img">
+            </div>
+            <div class="header-right">
+                <!-- Menú de usuario con estado integrado -->
+                <div class="header-user-menu">
+                    <button id="btn-user-menu" class="header-user-btn status-pending">
+                        <i data-lucide="user" style="width:16px;height:16px;"></i>
+                        <span id="header-username">Docente</span>
+                        <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                    </button>
+                    <div id="user-dropdown" class="user-dropdown hidden">
+                        <!-- Estado del sistema -->
+                        <div id="dropdown-status-section" class="dropdown-status-section">
+                            <div class="dropdown-status-header">
+                                <span id="dropdown-status-dot" class="dropdown-status-dot"></span>
+                                <span id="dropdown-status-text">Verificando...</span>
+                            </div>
+                            <div class="dropdown-path-box">
+                                <span id="dropdown-path-alias" class="dropdown-path-alias">Sin ruta</span>
+                                <span id="dropdown-change-path" class="dropdown-change-path">Cambiar</span>
+                            </div>
+                        </div>
+                        <div class="dropdown-divider"></div>
+                        <a href="#/courses" id="dropdown-courses" class="dropdown-item">
+                            <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
+                        </a>
+                        <a href="#/questionnaires" id="dropdown-questionnaires" class="dropdown-item">
+                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
+                        </a>
+                        <a href="#" id="dropdown-profile" class="dropdown-item">
+                            <i data-lucide="settings" style="width:16px;height:16px;"></i> Configuración
+                        </a>
+                        <a href="#" id="dropdown-help" class="dropdown-item">
+                            <i data-lucide="help-circle" style="width:16px;height:16px;"></i> Ayuda
+                        </a>
+                        <div class="dropdown-divider"></div>
+                        <a href="#" id="dropdown-logout" class="dropdown-item dropdown-danger">
+                            <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesión
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- ====== Sidebar + Main Layout ====== -->
+        <div id="layout-body" class="hidden">
+            <!-- Sidebar izquierdo: navegacion de cursos -->
+            <aside id="sidebar" class="sidebar">
+                <div class="sidebar-header">
+                    <div class="sidebar-header-row">
+                        <h3 class="sidebar-title">Mis Cursos</h3>
+                        <span id="sidebar-course-count" class="sidebar-course-count">0</span>
+                        <button id="btn-sidebar-new-course" class="sidebar-add-btn" aria-label="Nuevo curso" title="Nuevo curso">
+                            <i data-lucide="plus" style="width:18px;height:18px;"></i>
+                        </button>
+                        <button id="btn-sidebar-close" class="btn-ghost btn-sm sidebar-close-btn" aria-label="Cerrar sidebar" style="display:none;">
+                            <i data-lucide="x" style="width:18px;height:18px;"></i>
+                        </button>
+                    </div>
+                    <div id="sidebar-create-course" class="sidebar-create-course hidden">
+                        <h4>Nuevo curso</h4>
+                        <label for="sidebar-new-course-name">Nombre del curso:</label>
+                        <input type="text" id="sidebar-new-course-name" placeholder="Ej: 1ro B ESN5">
+                        <label for="sidebar-new-students-list">Lista de alumnos (uno por linea):</label>
+                        <textarea id="sidebar-new-students-list" rows="4" placeholder="Aguilar, SANTINO&#10;Bermudez, MARTINA&#10;..."></textarea>
+                        <div class="sidebar-create-actions">
+                            <button id="btn-sidebar-create-confirm" class="btn-primary btn-sm">Crear</button>
+                            <button id="btn-sidebar-create-cancel" class="btn-secondary btn-sm">Cancelar</button>
+                        </div>
+                    </div>
+                </div>
+                <nav id="sidebar-courses-list" class="sidebar-courses-list" role="navigation" aria-label="Cursos">
+                </nav>
+                <div class="sidebar-empty-state hidden" id="sidebar-empty">
+                    <p>Todavia no hay cursos.</p>
+                    <p class="sidebar-empty-hint">Crea tu primer curso para empezar.</p>
+                </div>
+            </aside>
+
+            <main id="main-content">
+
+                <div id="courses-grid" class="hidden"></div>
+
+        <!-- ====== Cuestionarios ====== -->
+        <div id="questionnaires-screen" class="hidden">
+            <div class="questionnaires-container">
+                <div class="questionnaires-header">
+                    <h2>Cuestionarios</h2>
+                    <div class="questionnaires-actions">
+                        <button id="btn-new-questionnaire" class="btn-primary btn-sm">
+                            <i data-lucide="plus" style="width:16px;height:16px;"></i> Nuevo cuestionario
+                        </button>
+                        <button id="btn-close-questionnaires" class="btn-secondary btn-sm">Volver</button>
+                    </div>
+                </div>
+                <div id="questionnaires-list" class="questionnaires-list"></div>
+            </div>
+        </div>
+
+        <!-- ====== Editor de Cuestionario ====== -->
+        <div id="questionnaire-editor" class="hidden">
+            <div class="questionnaires-container">
+                <div class="questionnaires-header">
+                    <h2 id="editor-title">Nuevo cuestionario</h2>
+                    <div class="questionnaires-actions">
+                        <button id="btn-save-questionnaire-editor" class="btn-primary btn-sm">Guardar</button>
+                        <button id="btn-cancel-questionnaire-editor" class="btn-secondary btn-sm">Cancelar</button>
+                    </div>
+                </div>
+
+                <div class="editor-fields">
+                        <label for="qe-name">Nombre</label>
+                    <input type="text" id="qe-name" placeholder="Nombre del cuestionario">
+                </div>
+
+                <div class="qe-editor-layout">
+                    <div class="qe-editor-pane">
+                        <label for="qe-textarea">Editor Markdown</label>
+                        <textarea id="qe-textarea" rows="20" placeholder="Pega aqui tu cuestionario en formato markdown..."></textarea>
+                        <p class="hint" style="margin-top: var(--space-2); font-size: 0.75rem;">
+                            Formato: <code># Titulo</code>, <code>&gt; section: valoracion</code>, <code>&gt; type: frequency_4</code>, texto y opciones con <code>- </code>.
+                        </p>
+                    </div>
+                    <div class="qe-preview-pane">
+                        <label>Vista previa</label>
+                        <div id="qe-preview" class="qe-preview"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ====== Dashboard del Curso (pantalla principal) ====== -->
+        <div id="course-view" class="hidden course-view-surface">
+            <div class="course-view-header">
+                <h2 id="course-view-title">Curso</h2>
+                <p class="hint">Selecciona un alumno para empezar a escribir su informe.</p>
+            </div>
+
+            <div id="dashboard-stats" class="course-view-stats"></div>
+            
+            <div id="course-contents-section" class="course-contents-section" role="region" aria-label="Contenidos del curso">
+                <button id="btn-toggle-contents" class="course-contents-toggle" aria-expanded="false" aria-controls="course-contents-body">
+                    <i data-lucide="book-open" style="width:14px;height:14px;"></i>
+                    <span>Contenidos del curso</span>
+                    <i data-lucide="chevron-down" class="toggle-chevron" style="width:16px;height:16px;"></i>
+                </button>
+                <div id="course-contents-body" class="course-contents-body hidden">
+                    <p class="course-contents-hint">Los contenidos se incluyen en cada informe generado.</p>
+                    <textarea id="course-contents" rows="4" placeholder="Present simple&#10;Past simple&#10;Vocabulary"></textarea>
+                    <button id="btn-save-course-contents" class="btn-primary btn-sm" style="width:100%;" disabled>
+                        <i data-lucide="save" style="width:14px;height:14px;"></i> Guardar
+                    </button>
+                </div>
+            </div>
+
+            <div id="dashboard-questionnaire-selector" class="course-view-questionnaire">
+                <label for="active-questionnaire" class="course-view-questionnaire-label">Cuestionario activo:</label>
+                <select id="active-questionnaire" class="course-view-questionnaire-select">
+                    <option value="">Predeterminado (19 preguntas)</option>
+                </select>
+            </div>
+
+            <div class="course-view-search">
+                <input type="text" id="student-search" class="course-view-search-input" placeholder="Buscar alumno por nombre...">
+            </div>
+            <div id="dashboard-students-list" class="students-list list-container"></div>
+
+            <div class="dashboard-actions">
+                <button id="btn-back-to-menu" class="btn-secondary">Volver a Mis Cursos</button>
+                <button id="btn-download-all" class="btn-primary">Descargar informe completo del curso</button>
+            </div>
+        </div>
+
+        <!-- ====== Wizard: 3 Pasos ====== -->
+        <div id="wizard" class="hidden">
+            <!-- Sticky student header (persiste entre pasos 1-2) -->
+                <div id="questionnaire-sticky-header" class="sticky-header" role="region" aria-label="Informacion del alumno actual">
+                <div id="sticky-student-name" class="sticky-student-name" aria-live="polite"></div>
+                <div id="sticky-student-counter" class="sticky-student-counter" aria-live="polite"></div>
+            </div>
+
+            <!-- Barra de progreso -->
+            <nav id="progress-bar" role="tablist" aria-label="Pasos del asistente">
+                <div class="step active" data-step="1" role="tab" aria-selected="true" tabindex="0" aria-label="Paso 1: Cuestionario" aria-controls="step-1"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
+                <div class="step" data-step="2" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 2: Configuracion" aria-controls="step-2"><i data-lucide="settings" class="step-icon"></i><span class="step-label">Configuracion</span></div>
+                <div class="step" data-step="3" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 3: Informe" aria-controls="step-3"><i data-lucide="scroll-text" class="step-icon"></i><span class="step-label">Informe</span></div>
+            </nav>
+
+            <!-- Paso 1: Cuestionario -->
+            <section id="step-1" class="step-content active" role="tabpanel" aria-labelledby="progress-bar">
+                <div id="step-announcement" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+
+                <div id="wizard-substep-label" class="wizard-substep-label" role="status" aria-live="polite">Paso 1a: Observaciones y asistencia</div>
+
+                <div id="question-counter" class="question-counter" aria-live="polite">Pregunta 1 / 19</div>
+                <div class="question-progress-bar">
+                    <div id="question-progress-fill" class="question-progress-fill" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso del cuestionario"></div>
+                </div>
+
+                <!-- Panel de observaciones -->
+                <div id="observations-panel" class="hidden">
+                    <h3>Observaciones del alumno</h3>
+                    <p class="hint">Registra las observaciones de clase del alumno. Cada observación indica que estuvo presente ese día. La asistencia se calcula desde los totales que ingreses abajo.</p>
+
+                    <div class="obs-actions" style="margin-bottom: var(--space-4); margin-top: 0;">
+                        <button id="btn-skip-obs" class="btn-secondary">No modificar, ir al cuestionario</button>
+                        <button id="btn-save-obs" class="btn-primary">Guardar observaciones y continuar</button>
+                    </div>
+
+                    <!-- Asistencia -->
+                    <div id="obs-attendance-inputs" style="background: var(--surface-subtle); padding: var(--space-4); border-radius: var(--radius-lg); margin-bottom: var(--space-4);">
+                        <h4 style="margin-top: 0; font-size: 1rem;">Asistencia</h4>
+                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
+                            <div>
+                                <label for="obs-attendance-total">Total de clases:</label>
+                                <input type="number" id="obs-attendance-total" min="0" value="0">
+                            </div>
+                            <div>
+                                <label for="obs-attendance-absences">Inasistencias:</label>
+                                <input type="number" id="obs-attendance-absences" min="0" value="0">
+                            </div>
+                        </div>
+                        <p id="obs-attendance-percentage" class="hint" style="margin-top: var(--space-2);"></p>
+                    </div>
+
+                    <!-- Resumen de asistencia -->
+                    <div id="obs-attendance-summary" aria-live="polite" style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-md); border: 2px solid var(--border-default);"></div>
+
+                    <!-- Carga rapida -->
+                    <div class="obs-quick-input">
+                        <label>Carga rapida de observaciones:</label>
+                        <p class="hint" style="margin-top: 0; margin-bottom: var(--space-2);">Formato: <strong>dd/mm - Comentario</strong>. Ej: 15/3 - Participó activamente</p>
+                        <div style="display: flex; gap: var(--space-2); align-items: flex-start;">
+                            <textarea id="obs-quick-text" rows="3" placeholder="15/3 - Participó activamente&#10;20/3 - No realizó la tarea&#10;..." style="flex: 1;"></textarea>
+                            <button id="btn-parse-obs" class="btn-secondary" style="margin-top: 0; white-space: nowrap;">Agregar</button>
+                        </div>
+                    </div>
+
+                    <!-- Tabla de observaciones -->
+                    <p class="hint obs-code-legend" style="margin-bottom:var(--space-3);line-height:1.6">
+                        <strong>Codigos:</strong> P = Presente, A = Ausente, P-EXC = Presente Excelente, P-X = Presente sin material, T = Tardanza
+                    </p>
+                    <div class="obs-table-container">
+                        <div class="obs-table-header" style="grid-template-columns: 100px 90px 1fr 40px;">
+                            <span>Fecha</span>
+                            <span>Codigo</span>
+                            <span>Observacion</span>
+                            <span></span>
+                        </div>
+                        <div id="obs-table-body"></div>
+                        <button id="btn-add-obs-row" class="btn-secondary btn-sm"><i data-lucide="plus" style="width:16px;height:16px;"></i> Agregar fila</button>
+                    </div>
+                </div>
+
+                <!-- Tarjeta de pregunta -->
+                <div id="question-card" class="question-card">
+                    <h3 id="question-section-header" class="question-section-header" aria-live="polite"></h3>
+                    <div id="question-title-label" class="question-title-label"></div>
+                    <div id="current-question-text" class="question-text-large"></div>
+                    <div id="current-question-options" class="answer-buttons"></div>
+                    <button id="question-skip-text" class="skip-btn">Omitir esta pregunta</button>
+                </div>
+
+                <div class="wizard-footer">
+                    <button id="prev-question-btn" class="icon-btn" title="Pregunta anterior"><i data-lucide="arrow-left"></i></button>
+                    <button id="btn-save-questionnaire" class="btn-secondary btn-sm" title="Guardar y salir"><i data-lucide="save" style="width:16px;height:16px;"></i> Guardar progreso</button>
+                    <button id="btn-skip-all-questions" class="btn-secondary btn-sm">Generar solo con observaciones</button>
+                    <button id="btn-exit-without-save" class="btn-ghost btn-sm">Salir sin guardar</button>
+                </div>
+
+                <!-- Nota: El panel de asistencia fue movido al panel de observaciones -->
+            </section>
+
+            <!-- Paso 2: Configuracion del Informe -->
+            <section id="step-2" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
+                <h2>Configuracion del Informe</h2>
+
+                <div class="selection-section">
+                    <div class="selection-header">
+                        <span class="selection-label">Modelo de IA</span>
+                        <span class="selection-hint">El recomendado ya está seleccionado. Podés cambiarlo si preferís otro.</span>
+                    </div>
+                    <div id="model-cards" class="selection-list" role="radiogroup" aria-label="Modelo de IA">
+                    </div>
+                    <div id="model-cards-extra" class="hidden"></div>
+                    <button id="btn-show-more-models" class="btn-ghost btn-sm selection-show-more hidden">
+                        <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
+                        Mostrar mas modelos
+                    </button>
+                </div>
+
+                <div class="selection-section">
+                    <div class="selection-header">
+                        <span class="selection-label">Variante del informe</span>
+                    </div>
+                    <div id="variants-list" class="selection-list" role="radiogroup" aria-label="Variante del informe">
+                    </div>
+                </div>
+
+                <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
+                    <button id="btn-step-2" class="btn-primary" aria-label="Generar informe">Generar Informe</button>
+                    <button id="btn-back-to-questionnaire" class="btn-secondary" aria-label="Volver al cuestionario">Volver al cuestionario</button>
+                </div>
+            </section>
+
+            <!-- Paso 3: Informe Generado -->
+            <section id="step-3" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
+                <h2>Informe Generado</h2>
+                <div id="report-preview" class="report-box" role="region" aria-live="polite" aria-atomic="true" aria-label="Vista previa del informe">
+                    <p class="hint">Completá los pasos anteriores para generar un informe.</p>
+                </div>
+                <div id="report-actions" class="hidden">
+                    <button id="btn-download" class="btn-primary"><i data-lucide="download" style="width:18px;height:18px;"></i> Descargar</button>
+                    <button id="btn-modify-report" class="btn-secondary"><i data-lucide="sliders-horizontal" style="width:18px;height:18px;"></i> Modificar</button>
+                    <button id="btn-next-student" class="btn-primary"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i> Siguiente</button>
+                    <button id="btn-go-dashboard" class="btn-secondary"><i data-lucide="undo-2" style="width:18px;height:18px;"></i> Dashboard</button>
+                    <button id="btn-finish" class="btn-secondary"><i data-lucide="check" style="width:18px;height:18px;"></i> Finalizar</button>
+                </div>
+                <div id="customization-panel" class="hidden">
+                    <div class="customization-card">
+                        <h3>Ajustar el informe</h3>
+                        <p class="hint" style="margin-bottom:12px;">Describi que queres cambiar y regenera el informe.</p>
+                        <div class="length-buttons">
+                            <button class="btn-secondary btn-sm length-btn" data-length="C" aria-pressed="false">Un parrafo</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="A" aria-pressed="false">Media carilla</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="B" aria-pressed="false">Una carilla</button>
+                        </div>
+                        <textarea id="customization-text" class="customization-textarea" placeholder="Ej: que sea mas empatico, mas corto, que mencione su participacion en clase..."></textarea>
+                        <span id="customization-counter" class="hint" style="display:none;margin-top:4px;text-align:right;"></span>
+                        <button id="btn-toggle-advanced" class="btn-ghost btn-sm" style="margin:8px 0;">Ajustes avanzados</button>
+                        <div id="advanced-sliders" class="hidden">
+                            <div class="sliders-group">
+                                <div class="slider-row">
+                                    <label for="slider-formality">Formalidad</label>
+                                    <input type="range" id="slider-formality" min="0" max="100" value="50" aria-label="Formalidad: de Casual a Formal">
+                                    <span class="slider-labels" aria-hidden="true"><span>Casual</span><span>Formal</span></span>
+                                </div>
+                                <div class="slider-row">
+                                    <label for="slider-empathy">Empatia</label>
+                                    <input type="range" id="slider-empathy" min="0" max="100" value="50" aria-label="Empatia: de Objetivo a Empatico">
+                                    <span class="slider-labels" aria-hidden="true"><span>Objetivo</span><span>Empatico</span></span>
+                                </div>
+                                <div class="slider-row">
+                                    <label for="slider-detail">Detalle</label>
+                                    <input type="range" id="slider-detail" min="0" max="100" value="50" aria-label="Detalle: de Conciso a Desarrollado">
+                                    <span class="slider-labels" aria-hidden="true"><span>Conciso</span><span>Desarrollado</span></span>
+                                </div>
+                                <div class="slider-row">
+                                    <label for="slider-naturalness">Naturalidad</label>
+                                    <input type="range" id="slider-naturalness" min="0" max="100" value="50" aria-label="Naturalidad: de Estructurado a Conversacional">
+                                    <span class="slider-labels" aria-hidden="true"><span>Estructurado</span><span>Conversacional</span></span>
+                                </div>
+                            </div>
+                        </div>
+                        <button id="btn-regenerate-custom" class="btn-primary"><i data-lucide="refresh-cw" style="width:16px;height:16px;"></i> Regenerar</button>
+                    </div>
+                </div>
+            </section>
+        </div><!-- /#wizard -->
+            </main><!-- /#main-content -->
+
+        </div><!-- /#layout-body -->
+
+        <!-- ====== Drawer de Alumno (JS-rendered) ====== -->
+        <div id="drawer-root"></div>
+
+        <!-- ====== Loading ====== -->
+        <div id="loading" class="hidden" role="alert" aria-live="assertive">
+            <div class="spinner"></div>
+            <p>Procesando...</p>
+        </div>
+    </div>
+
+
+    <!-- ====== Panel de Ayuda (JS-rendered) ====== -->
+    <div id="help-root"></div>
+
+    <!-- ====== Modal de Perfil (JS-rendered) ====== -->
+    <div id="profile-root"></div>
+
+    <!-- Toast notification container -->
+    <div id="toast-container" class="toast-container" aria-live="polite" aria-relevant="additions"></div>
+
+    <!-- Confirmation dialog -->
+    <div id="confirm-overlay" class="confirm-overlay hidden">
+        <div class="confirm-card">
+            <p id="confirm-message" class="confirm-message"></p>
+            <div class="confirm-actions">
+                <button id="confirm-cancel" class="btn-secondary btn-sm">Cancelar</button>
+                <button id="confirm-ok" class="btn-primary btn-sm">Aceptar</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/js/app.js?v=13"></script>
+</body>
+</html>
