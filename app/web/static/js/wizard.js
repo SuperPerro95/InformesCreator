@@ -43,15 +43,16 @@ export function goToWizardStep(step) {
     if (prev) prev.classList.add('completed');
   }
   setCurrentWizardStep(step);
-  const helpMap = { 1: 'wizard_obs', 2: 'wizard_cfg', 3: 'wizard_report' };
+  // 4-step map: 1=attendance, 2=questionnaire, 3=config, 4=report
+  const helpMap = { 1: 'wizard_obs', 2: 'wizard_q', 3: 'wizard_cfg', 4: 'wizard_report' };
   const helpScreen = helpMap[step] || 'wizard_obs';
   import('./utils.js').then(mod => mod.updateHelpButton(helpScreen));
   import('./state.js').then(mod => mod.setCurrentHelpScreen(helpScreen));
   import('./utils.js').then(mod => mod.announceStep(step));
   const selectedCourse = getSelectedCourse();
   const slug = selectedCourse.replace(/\s+/g, '-');
-  const extra = step === 2 ? '/config' : (step === 3 ? '/report' : '');
-  navigateTo(`#/wizard/${slug}${extra}`);
+  const stepNames = { 1: 'attendance', 2: 'questionnaire', 3: 'config', 4: 'report' };
+  navigateTo(`#/wizard/${slug}/${stepNames[step] || ''}`);
   setTimeout(() => {
     const stepEl = $(`step-${step}`);
     const heading = stepEl ? stepEl.querySelector('h2, h3, h4') : null;
@@ -537,7 +538,7 @@ export async function finishQuestionnaire() {
   await new Promise(function(r) { return setTimeout(r, 200); });
   hide(qCard); hide(progBar); hide(qCounter);
   [qCard, progBar, qCounter].forEach(function(el) { if (el) el.classList.remove('exiting'); });
-  goToWizardStep(2);
+  goToWizardStep(3);
   await import('./app.js').then(mod => mod.loadVariantsInner());
 }
 
@@ -577,7 +578,7 @@ export async function skipAllAndGenerate() {
   hide($('question-card'));
   hide(document.querySelector('.question-progress-bar'));
   hide($('question-counter'));
-  goToWizardStep(2);
+  goToWizardStep(3);
   await import('./app.js').then(mod => mod.loadVariantsInner());
 }
 

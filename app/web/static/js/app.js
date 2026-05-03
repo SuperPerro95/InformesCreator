@@ -179,7 +179,8 @@ function showWizardFromHash(substep) {
   hide($('course-view'));
   setSidebarMode('full');
   show($('wizard'));
-  const stepMap = { config: 2, report: 3 };
+  // Map substep name to step number (4-step wizard)
+  const stepMap = { attendance: 1, questionnaire: 2, config: 3, report: 4 };
   const step = stepMap[substep] || 1;
   document.querySelectorAll('.step-content').forEach(el => el.classList.remove('active'));
   document.querySelectorAll('#progress-bar .step').forEach(el => el.classList.remove('active'));
@@ -193,7 +194,24 @@ function showWizardFromHash(substep) {
     if (prev) prev.classList.add('completed');
   }
   import('./state.js').then(mod => mod.setCurrentWizardStep(step));
-  const helpMap = { 1: 'wizard_obs', 2: 'wizard_cfg', 3: 'wizard_report' };
+  // Step 1 = attendance (observations only), step 2 = questionnaire, step 3 = config, step 4 = report
+  if (step === 1) {
+    show($('observations-panel'));
+    hide($('question-card'));
+    hide(document.querySelector('.question-progress-bar'));
+    hide($('question-counter'));
+  } else if (step === 2) {
+    hide($('observations-panel'));
+    show($('question-card'));
+    show(document.querySelector('.question-progress-bar'));
+    show($('question-counter'));
+  } else {
+    hide($('observations-panel'));
+    hide($('question-card'));
+    hide(document.querySelector('.question-progress-bar'));
+    hide($('question-counter'));
+  }
+  const helpMap = { 1: 'wizard_obs', 2: 'wizard_q', 3: 'wizard_cfg', 4: 'wizard_report' };
   const helpScreen = helpMap[step] || 'wizard_obs';
   updateHelpButton(helpScreen);
   setCurrentHelpScreen(helpScreen);
@@ -311,7 +329,7 @@ const HERO_SCREEN_TEMPLATE = `
       <p class="lp-tagline-sub">Sin estres, a tu ritmo, en tu aula</p>
     </div>
     <div class="lp-illustration">
-      <img src="/ilustración.png" alt="Docente usando InformesCreator con IA" class="lp-illustration-img">
+      <img src="/hero.png" alt="Docente usando InformesCreator con IA" class="lp-illustration-img">
     </div>
     <div class="lp-hero-buttons">
       <button class="lp-btn-primary" id="btn-hero-start">
@@ -324,51 +342,57 @@ const HERO_SCREEN_TEMPLATE = `
 `;
 
 export function showHero() {
-  const heroRoot = $('hero-root');
-  if (!heroRoot) return;
-  heroRoot.innerHTML = HERO_SCREEN_TEMPLATE;
-  const hero = heroRoot.firstElementChild;
-  const bg = $('hero-bg');
-  hero.classList.remove('hidden');
-  hero.style.opacity = '1';
-  hero.style.pointerEvents = 'auto';
-  if (bg) {
-    bg.classList.remove('hidden');
-    bg.style.opacity = '1';
+  hideMainContentScreens();
+  const stage = $('landing-stage');
+  if (stage) {
+    stage.classList.remove('hidden');
+    stage.classList.remove('show-auth');
   }
-  setSidebarMode('hidden');
+
+  const heroRoot = $('hero-root');
+  if (heroRoot) heroRoot.classList.remove('hidden');
+  
+  const hero = document.getElementById('hero-screen');
+  if (hero) {
+    hero.classList.remove('hidden');
+    hero.style.opacity = '1';
+    hero.style.pointerEvents = 'auto';
+  }
+  
   if (window.lucide) lucide.createIcons();
-  $('btn-hero-start').addEventListener('click', () => {
-    if (getAuthState().loggedIn) {
-      navigateTo('#/onboarding');
-    } else {
-      navigateTo('#/login');
-    }
-  });
+  
+  const btnStart = $('btn-hero-start');
+  if (btnStart) {
+    btnStart.onclick = () => {
+      if (getAuthState().loggedIn) {
+        navigateTo('#/courses');
+      } else {
+        navigateTo('#/login');
+      }
+    };
+  }
+  
   const particles = $('bg-particles');
   if (particles) particles.classList.remove('hidden');
 }
 
 export function hideHero() {
-  const heroRoot = $('hero-root');
-  const hero = heroRoot ? heroRoot.firstElementChild : null;
-  const bg = $('hero-bg');
+  const stage = $('landing-stage');
+  const hero = document.getElementById('hero-screen');
+  
   if (hero) {
     hero.style.opacity = '0';
     hero.style.pointerEvents = 'none';
   }
-  if (bg) {
-    bg.style.opacity = '0';
-    setTimeout(() => bg.classList.add('hidden'), 600);
+
+  // If we are not going to auth, hide the whole stage
+  if (!window.location.hash.includes('login') && !window.location.hash.includes('register')) {
+    if (stage) stage.classList.add('hidden');
+    const heroRoot = $('hero-root');
+    if (heroRoot) heroRoot.classList.add('hidden');
+    const particles = $('bg-particles');
+    if (particles) particles.classList.add('hidden');
   }
-  if (hero) {
-    setTimeout(() => {
-      hero.classList.add('hidden');
-      heroRoot.innerHTML = '';
-    }, 600);
-  }
-  const particles = $('bg-particles');
-  if (particles) particles.classList.add('hidden');
 }
 
 export async function preloadSystemStatus() {
@@ -1165,10 +1189,19 @@ async function init() {
   }
 
   const { loadAuthState, saveAuthState, initAuth } = await import('./auth.js');
-  loadAuthState();
+  await initAuth();
   const authState = getAuthState();
+
+  // If no hash, decide what to show based on auth state
+  if (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#') {
+    if (authState.loggedIn) {
+      navigateTo('#/courses');
+    } else {
+      showHero();
+    }
+  }
+
   if (authState.loggedIn) {
-    showHero();
     preloadSystemStatus();
   }
 
@@ -1214,10 +1247,7 @@ async function init() {
     if (ok) import('./wizard.js').then(m => m.hideWizard());
   });
   $('btn-save-obs').addEventListener('click', () => import('./wizard.js').then(m => m.saveObservationsAndContinue()));
-  $('obs-attendance-total').addEventListener('input', () => import('./wizard.js').then(m => {
-    // updateObsAttendancePercentage is not exported, we handle inline
-  }));
-  $('obs-attendance-absences').addEventListener('input', () => {
+  $('obs-attendance-total').addEventListener('input', () => {
     const total = parseInt($('obs-attendance-total').value) || 0;
     const absences = parseInt($('obs-attendance-absences').value) || 0;
     const pct = total > 0 ? ((absences / total) * 100).toFixed(1) : 0;
@@ -1225,7 +1255,7 @@ async function init() {
       ? `Inasistencia: ${pct}% (${absences} de ${total} clases)`
       : '';
   });
-  $('obs-attendance-total').addEventListener('input', () => {
+  $('obs-attendance-absences').addEventListener('input', () => {
     const total = parseInt($('obs-attendance-total').value) || 0;
     const absences = parseInt($('obs-attendance-absences').value) || 0;
     const pct = total > 0 ? ((absences / total) * 100).toFixed(1) : 0;
@@ -1242,10 +1272,23 @@ async function init() {
         import('./wizard.js').then(m => {
           m.goToWizardStep(targetStep);
           if (targetStep === 1) {
+            // Attendance/observations step: show panel
+            show($('observations-panel'));
+            hide($('question-card'));
+            hide(document.querySelector('.question-progress-bar'));
+            hide($('question-counter'));
+          } else if (targetStep === 2) {
+            // Questionnaire step
+            hide($('observations-panel'));
             show($('question-card'));
             show(document.querySelector('.question-progress-bar'));
             show($('question-counter'));
+          } else {
+            // Config or report step: hide both panels
             hide($('observations-panel'));
+            hide($('question-card'));
+            hide(document.querySelector('.question-progress-bar'));
+            hide($('question-counter'));
           }
         });
       }
@@ -1257,14 +1300,16 @@ async function init() {
     hide($('btn-show-more-models'));
   });
 
-  $('btn-step-2').addEventListener('click', async () => {
-    import('./wizard.js').then(m => m.goToWizardStep(3));
+  // Step 3 button: go to step 4 (report) + generate
+  $('btn-step-3').addEventListener('click', async () => {
+    import('./wizard.js').then(m => m.goToWizardStep(4));
     import('./report.js').then(m => m.doGenerateReport());
   });
 
+  // Back to questionnaire: step 2 (questionnaire), show question card + progress bar
   $('btn-back-to-questionnaire').addEventListener('click', async () => {
     import('./wizard.js').then(m => {
-      m.goToWizardStep(1);
+      m.goToWizardStep(2);
       show($('question-card'));
       show(document.querySelector('.question-progress-bar'));
       show($('question-counter'));
@@ -1420,7 +1465,6 @@ async function init() {
     });
   });
 
-  initAuth();
 
   const mobileToggle = $('btn-mobile-sidebar-toggle');
   if (mobileToggle) mobileToggle.addEventListener('click', () => import('./sidebar.js').then(m => m.toggleMobileSidebar()));

@@ -2,140 +2,214 @@ import { apiGet, apiPut, apiPost } from './api.js';
 import { $, show, hide, showToast, setLoading, showFieldError, clearFieldErrors, refreshIcons } from './utils.js';
 import { getAuthState, setAuthState, getSystemStatus } from './state.js';
 
-const LOGIN_TEMPLATE = `
-  <div id="login-screen" class="hero-screen landing-page">
-    <div class="lp-header" style="margin-bottom: var(--space-4);">
-      <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img">
+const UNIFIED_AUTH_TEMPLATE = `
+  <div class="auth-card">
+    <button class="btn-back-landing" id="btn-back-landing" title="Volver al inicio">
+      <i data-lucide="arrow-left"></i>
+    </button>
+    <div class="auth-header">
+      <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img" style="margin: 0 auto 1.5rem; max-height: 40px;">
+      <div class="auth-tabs">
+        <button class="auth-tab active" id="tab-login">Ingresar</button>
+        <button class="auth-tab" id="tab-register">Registrarse</button>
+      </div>
     </div>
-    <div class="lp-tagline-wrap" style="margin-bottom: var(--space-6);">
-      <h1 class="lp-tagline-main" style="font-size: 1.5rem;">Iniciar sesión</h1>
-      <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true" style="width: 100px;">
-        <path d="M0,6 Q25,2 50,6 Q75,10 100,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-      </svg>
-    </div>
-    <div style="width: 100%; max-width: 320px;">
-      <form id="login-form" class="auth-form" novalidate>
-        <div class="auth-field">
-          <label for="login-username">Usuario</label>
-          <input type="text" id="login-username" placeholder="Tu usuario" autocomplete="username" required>
-          <p class="auth-field-error" id="login-username-error" role="alert"></p>
-        </div>
-        <div class="auth-field">
-          <label for="login-password">Contraseña</label>
-          <div class="auth-input-wrap">
-            <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" minlength="4" required>
-            <button type="button" class="btn-toggle-password" data-target="login-password" aria-label="Mostrar contraseña">
-              <i data-lucide="eye" style="width:16px;height:16px;"></i>
-            </button>
-          </div>
-          <p class="auth-field-error" id="login-password-error" role="alert"></p>
-        </div>
-        <button type="submit" id="btn-login" class="hero-cta" style="width: 100%; justify-content: center;">Entrar</button>
-        <p id="login-error" class="auth-form-error" role="alert"></p>
-      </form>
-      <p class="hint" style="margin-top: 16px;">¿Primera vez? <a href="#/register" id="link-register" style="color: var(--accent); font-weight: 600;">Crear perfil</a></p>
-    </div>
-  </div>
-`;
 
-const REGISTER_TEMPLATE = `
-  <div id="register-screen" class="hero-screen landing-page">
-    <div class="lp-header" style="margin-bottom: var(--space-4);">
-      <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img">
-    </div>
-    <div class="lp-tagline-wrap" style="margin-bottom: var(--space-6);">
-      <h1 class="lp-tagline-main" style="font-size: 1.5rem;">Crear perfil</h1>
-      <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true" style="width: 100px;">
-        <path d="M0,6 Q25,2 50,6 Q75,10 100,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
-      </svg>
-    </div>
-    <div style="width: 100%; max-width: 320px;">
-      <form id="register-form" class="auth-form" novalidate>
-        <div class="auth-field">
-          <label for="reg-username">Usuario</label>
-          <input type="text" id="reg-username" placeholder="Elegí un usuario" autocomplete="username" required>
-          <p class="auth-field-error" id="reg-username-error" role="alert"></p>
-        </div>
-        <div class="auth-field">
-          <label for="reg-display-name">Nombre completo (opcional)</label>
-          <input type="text" id="reg-display-name" placeholder="Ej: Marta Lopez" autocomplete="name">
-        </div>
-        <div class="auth-field">
-          <label for="reg-password">Contraseña</label>
-          <div class="auth-input-wrap">
-            <input type="password" id="reg-password" placeholder="Elegí una contraseña" autocomplete="new-password" minlength="4" required>
-            <button type="button" class="btn-toggle-password" data-target="reg-password" aria-label="Mostrar contraseña">
-              <i data-lucide="eye" style="width:16px;height:16px;"></i>
-            </button>
+    <div class="auth-form-container">
+      <!-- Login Pane -->
+      <div id="pane-login" class="auth-form-pane">
+        <form id="login-form" class="auth-form" novalidate>
+          <div class="auth-field">
+            <label for="login-username">Usuario</label>
+            <input type="text" id="login-username" placeholder="Tu usuario" autocomplete="username" required>
+            <p class="auth-field-error" id="login-username-error" role="alert"></p>
           </div>
-          <p class="auth-field-error" id="reg-password-error" role="alert"></p>
-        </div>
-        <div class="auth-field">
-          <label for="reg-password-confirm">Repetí la contraseña</label>
-          <div class="auth-input-wrap">
-            <input type="password" id="reg-password-confirm" placeholder="Repetí la contraseña" autocomplete="new-password" minlength="4" required>
-            <button type="button" class="btn-toggle-password" data-target="reg-password-confirm" aria-label="Mostrar contraseña">
-              <i data-lucide="eye" style="width:16px;height:16px;"></i>
-            </button>
+          <div class="auth-field">
+            <label for="login-password">Contraseña</label>
+            <div class="auth-input-wrap">
+              <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" minlength="4" required>
+              <button type="button" class="btn-toggle-password" data-target="login-password" aria-label="Mostrar contraseña">
+                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+              </button>
+            </div>
+            <p class="auth-field-error" id="login-password-error" role="alert"></p>
           </div>
-          <p class="auth-field-error" id="reg-password-confirm-error" role="alert"></p>
-        </div>
-        <button type="submit" id="btn-register" class="hero-cta" style="width: 100%; justify-content: center;">Crear perfil</button>
-        <p id="register-error" class="auth-form-error" role="alert"></p>
-      </form>
-      <p class="hint" style="margin-top: 16px;"><a href="#/login" id="link-login" style="color: var(--accent); font-weight: 600;">Ya tengo perfil</a></p>
+          <button type="submit" id="btn-login" class="lp-btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+            Entrar
+          </button>
+          <p id="login-error" class="auth-form-error" role="alert" style="text-align: center;"></p>
+        </form>
+      </div>
+
+      <!-- Register Pane -->
+      <div id="pane-register" class="auth-form-pane hidden">
+        <form id="register-form" class="auth-form" novalidate>
+          <div class="auth-field">
+            <label for="reg-username">Usuario</label>
+            <input type="text" id="reg-username" placeholder="Elegí un usuario" autocomplete="username" required>
+            <p class="auth-field-error" id="reg-username-error" role="alert"></p>
+          </div>
+          <div class="auth-field">
+            <label for="reg-display-name">Nombre completo (opcional)</label>
+            <input type="text" id="reg-display-name" placeholder="Ej: Marta Lopez" autocomplete="name">
+          </div>
+          <div class="auth-field">
+            <label for="reg-password">Contraseña</label>
+            <div class="auth-input-wrap">
+              <input type="password" id="reg-password" placeholder="Elegí una contraseña" autocomplete="new-password" minlength="4" required>
+              <button type="button" class="btn-toggle-password" data-target="reg-password" aria-label="Mostrar contraseña">
+                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+              </button>
+            </div>
+            <p class="auth-field-error" id="reg-password-error" role="alert"></p>
+          </div>
+          <div class="auth-field">
+            <label for="reg-password-confirm">Repetí la contraseña</label>
+            <div class="auth-input-wrap">
+              <input type="password" id="reg-password-confirm" placeholder="Repetí la contraseña" autocomplete="new-password" minlength="4" required>
+              <button type="button" class="btn-toggle-password" data-target="reg-password-confirm" aria-label="Mostrar contraseña">
+                <i data-lucide="eye" style="width:16px;height:16px;"></i>
+              </button>
+            </div>
+            <p class="auth-field-error" id="reg-password-confirm-error" role="alert"></p>
+          </div>
+          <button type="submit" id="btn-register" class="lp-btn-primary" style="width: 100%; justify-content: center; margin-top: 1rem;">
+            Crear perfil
+          </button>
+          <p id="register-error" class="auth-form-error" role="alert" style="text-align: center;"></p>
+        </form>
+      </div>
     </div>
   </div>
 `;
 
 function bindAuthListeners() {
-  $('login-form').addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
-  $('register-form').addEventListener('submit', (e) => { e.preventDefault(); doRegister(); });
-  $('link-register').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/register'); });
-  $('link-login').addEventListener('click', (e) => { e.preventDefault(); navigateTo('#/login'); });
+  const loginForm = $('login-form');
+  const registerForm = $('register-form');
+  if (loginForm) loginForm.addEventListener('submit', (e) => { e.preventDefault(); doLogin(); });
+  if (registerForm) registerForm.addEventListener('submit', (e) => { e.preventDefault(); doRegister(); });
 
-  ['login-username', 'login-password'].forEach(id => {
-    $(id).addEventListener('input', () => {
+  const tabLogin = $('tab-login');
+  const tabRegister = $('tab-register');
+  const paneLogin = $('pane-login');
+  const paneRegister = $('pane-register');
+
+  const switchTab = (mode) => {
+    if (mode === 'login') {
+      tabLogin.classList.add('active');
+      tabRegister.classList.remove('active');
+      paneLogin.classList.remove('hidden');
+      paneRegister.classList.add('hidden');
+      window.location.hash = '#/login';
+    } else {
+      tabLogin.classList.remove('active');
+      tabRegister.classList.add('active');
+      paneLogin.classList.add('hidden');
+      paneRegister.classList.remove('hidden');
+      window.location.hash = '#/register';
+    }
+  };
+
+  if (tabLogin) tabLogin.addEventListener('click', () => switchTab('login'));
+  if (tabRegister) tabRegister.addEventListener('click', () => switchTab('register'));
+
+  const btnBack = $('btn-back-landing');
+  if (btnBack) btnBack.addEventListener('click', () => {
+    const stage = $('landing-stage');
+    if (stage) stage.classList.remove('show-auth');
+    setTimeout(() => {
+      navigateTo('#/');
+    }, 400);
+  });
+
+  ['login-username', 'login-password', 'reg-username', 'reg-password', 'reg-password-confirm'].forEach(id => {
+    const el = $(id);
+    if (!el) return;
+    el.addEventListener('input', () => {
       import('./utils.js').then(m => {
-        m.clearFieldErrors(['login-username-error', 'login-password-error']);
+        m.clearFieldErrors(['login-username-error', 'login-password-error', 'reg-username-error', 'reg-password-error', 'reg-password-confirm-error']);
       });
-      $('login-error').textContent = '';
+      const loginError = $('login-error');
+      const regError = $('register-error');
+      if (loginError) loginError.textContent = '';
+      if (regError) regError.textContent = '';
     });
   });
 
-  ['reg-username', 'reg-password', 'reg-password-confirm'].forEach(id => {
-    $(id).addEventListener('input', () => {
-      import('./utils.js').then(m => {
-        m.clearFieldErrors(['reg-username-error', 'reg-password-error', 'reg-password-confirm-error']);
-      });
-      $('register-error').textContent = '';
+  document.querySelectorAll('.btn-toggle-password').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const input = $(targetId);
+      if (!input) return;
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      const icon = btn.querySelector('i');
+      if (icon && window.lucide) {
+        icon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
+        lucide.createIcons({ nodes: [btn] });
+      }
     });
   });
 }
 
 export function showLoginScreen() {
-  const root = $('auth-root');
-  if (!root) return;
-  root.innerHTML = LOGIN_TEMPLATE;
-  if (window.lucide) lucide.createIcons({ nodes: [root] });
-  bindAuthListeners();
+  renderAuthCard('login');
 }
 
 export function showRegisterScreen() {
+  renderAuthCard('register');
+}
+
+function renderAuthCard(mode = 'login') {
   const root = $('auth-root');
   if (!root) return;
-  root.innerHTML = REGISTER_TEMPLATE;
+  
+  if (root.innerHTML === '' || !root.querySelector('.auth-card')) {
+    root.innerHTML = UNIFIED_AUTH_TEMPLATE;
+    bindAuthListeners();
+  }
+  
+  const stage = $('landing-stage');
+  if (stage) {
+    root.classList.remove('hidden');
+    // Ensure display:flex is applied before animation
+    requestAnimationFrame(() => {
+      stage.classList.add('show-auth');
+    });
+  }
+
+  const tabLogin = $('tab-login');
+  const tabRegister = $('tab-register');
+  const paneLogin = $('pane-login');
+  const paneRegister = $('pane-register');
+
+  if (mode === 'login') {
+    tabLogin.classList.add('active');
+    tabRegister.classList.remove('active');
+    paneLogin.classList.remove('hidden');
+    paneRegister.classList.add('hidden');
+  } else {
+    tabLogin.classList.remove('active');
+    tabRegister.classList.add('active');
+    paneLogin.classList.add('hidden');
+    paneRegister.classList.remove('hidden');
+  }
+  
   if (window.lucide) lucide.createIcons({ nodes: [root] });
-  bindAuthListeners();
 }
 
 export function clearAuthScreen() {
+  const stage = $('landing-stage');
+  if (stage) stage.classList.remove('show-auth');
   const root = $('auth-root');
-  if (root) root.innerHTML = '';
+  if (root) setTimeout(() => { root.innerHTML = ''; }, 400);
 }
 
 export function hideAuthScreen() {
-  hide($('auth-root'));
+  const stage = $('landing-stage');
+  if (stage) stage.classList.remove('show-auth');
+  const root = $('auth-root');
+  if (root) setTimeout(() => { root.classList.add('hidden'); }, 400);
 }
 
 export function loadAuthState() {

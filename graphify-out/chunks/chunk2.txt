@@ -1,1 +1,0 @@
-/home/mrberru/projects/InformesCreator/app/web/static/index.html

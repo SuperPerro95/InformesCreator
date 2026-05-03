@@ -7,18 +7,57 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=13">
+    <link rel="stylesheet" href="/css/style.css?v=17">
+    <link rel="icon" href="/logotipo-informescreator.png">
+    <script>
+        // Early auth check to prevent Hero flash for logged-in users
+        try {
+            const auth = JSON.parse(localStorage.getItem('informescreator_auth'));
+            if (auth && auth.loggedIn && (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#')) {
+                document.documentElement.style.display = 'none';
+                window.location.hash = '#/courses';
+                window.addEventListener('DOMContentLoaded', () => {
+                    document.documentElement.style.display = '';
+                });
+            }
+        } catch (e) {}
+    </script>
     <script src="https://unpkg.com/lucide@latest" defer></script>
 </head>
 <body>
-    <div id="hero-bg"></div>
     <canvas id="bg-particles"></canvas>
     <div id="app">
-        <!-- ====== Auth Screen (JS-rendered) ====== -->
-        <div id="auth-root"></div>
+        <!-- ====== Landing Stage (Hero + Auth) ====== -->
+        <div id="landing-stage" class="landing-stage">
+            <!-- Hero Screen -->
+            <div id="hero-root">
+                <div id="hero-screen" class="hero-screen landing-page">
+                    <div class="lp-header">
+                        <img src="/logotipo-informescreator.png" alt="InformesCreator" class="lp-logo-img">
+                    </div>
+                    <div class="lp-tagline-wrap">
+                        <p class="lp-tagline-main">Tu asistente para escribir informes</p>
+                        <svg class="lp-tagline-underline" width="140" height="10" viewBox="0 0 140 10" aria-hidden="true">
+                            <path d="M0,6 Q35,2 70,6 Q105,10 140,5" fill="none" stroke="#2563EB" stroke-width="2.5" stroke-linecap="round" opacity="0.6"/>
+                        </svg>
+                        <p class="lp-tagline-sub">Sin estrés, a tu ritmo, en tu aula</p>
+                    </div>
+                    <div class="lp-illustration">
+                        <img src="/hero.png" alt="Docente usando InformesCreator con IA" class="lp-illustration-img">
+                    </div>
+                    <div class="lp-hero-buttons">
+                        <button class="lp-btn-primary" id="btn-hero-start">
+                            Comenzar
+                            <i data-lucide="arrow-right" class="lp-btn-icon"></i>
+                        </button>
+                    </div>
+                    <p class="lp-info-hint">Te acompañamos en cada paso</p>
+                </div>
+            </div>
 
-        <!-- ====== Hero Screen (JS-rendered) ====== -->
-        <div id="hero-root"></div>
+            <!-- Unified Auth Screen -->
+            <div id="auth-root" class="auth-root hidden"></div>
+        </div>
 
         <!-- ====== Overlay: Verificacion Inicial (JS-rendered) ====== -->
         <div id="onboarding-root"></div>
@@ -212,45 +251,36 @@
             </div>
         </div>
 
-        <!-- ====== Wizard: 3 Pasos ====== -->
+        <!-- ====== Wizard: 4 Pasos (full-width, no sidebar) ====== -->
         <div id="wizard" class="hidden">
-            <!-- Sticky student header (persiste entre pasos 1-2) -->
-                <div id="questionnaire-sticky-header" class="sticky-header" role="region" aria-label="Informacion del alumno actual">
+            <!-- Sticky student header (persiste entre pasos) -->
+            <div id="questionnaire-sticky-header" class="sticky-header" role="region" aria-label="Informacion del alumno actual">
                 <div id="sticky-student-name" class="sticky-student-name" aria-live="polite"></div>
                 <div id="sticky-student-counter" class="sticky-student-counter" aria-live="polite"></div>
             </div>
 
-            <!-- Barra de progreso -->
+            <!-- Barra de progreso: 4 pasos -->
             <nav id="progress-bar" role="tablist" aria-label="Pasos del asistente">
-                <div class="step active" data-step="1" role="tab" aria-selected="true" tabindex="0" aria-label="Paso 1: Cuestionario" aria-controls="step-1"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
-                <div class="step" data-step="2" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 2: Configuracion" aria-controls="step-2"><i data-lucide="settings" class="step-icon"></i><span class="step-label">Configuracion</span></div>
-                <div class="step" data-step="3" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 3: Informe" aria-controls="step-3"><i data-lucide="scroll-text" class="step-icon"></i><span class="step-label">Informe</span></div>
+                <div class="step active" data-step="1" role="tab" aria-selected="true" tabindex="0" aria-label="Paso 1: Asistencia y Observaciones" aria-controls="step-1"><i data-lucide="calendar-check" class="step-icon"></i><span class="step-label">Asistencia</span></div>
+                <div class="step" data-step="2" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 2: Cuestionario" aria-controls="step-2"><i data-lucide="clipboard-list" class="step-icon"></i><span class="step-label">Cuestionario</span></div>
+                <div class="step" data-step="3" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 3: Configuracion" aria-controls="step-3"><i data-lucide="settings" class="step-icon"></i><span class="step-label">Configuracion</span></div>
+                <div class="step" data-step="4" role="tab" aria-selected="false" tabindex="-1" aria-label="Paso 4: Informe" aria-controls="step-4"><i data-lucide="scroll-text" class="step-icon"></i><span class="step-label">Informe</span></div>
             </nav>
 
-            <!-- Paso 1: Cuestionario -->
+            <!-- Paso 1: Asistencia y Observaciones -->
             <section id="step-1" class="step-content active" role="tabpanel" aria-labelledby="progress-bar">
                 <div id="step-announcement" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 
-                <div id="wizard-substep-label" class="wizard-substep-label" role="status" aria-live="polite">Paso 1a: Observaciones y asistencia</div>
-
-                <div id="question-counter" class="question-counter" aria-live="polite">Pregunta 1 / 19</div>
-                <div class="question-progress-bar">
-                    <div id="question-progress-fill" class="question-progress-fill" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso del cuestionario"></div>
-                </div>
+                <div id="wizard-substep-label" class="wizard-substep-label" role="status" aria-live="polite">Paso 1: Asistencia y observaciones particulares</div>
 
                 <!-- Panel de observaciones -->
-                <div id="observations-panel" class="hidden">
+                <div id="observations-panel">
                     <h3>Observaciones del alumno</h3>
-                    <p class="hint">Registra las observaciones de clase del alumno. Cada observación indica que estuvo presente ese día. La asistencia se calcula desde los totales que ingreses abajo.</p>
-
-                    <div class="obs-actions" style="margin-bottom: var(--space-4); margin-top: 0;">
-                        <button id="btn-skip-obs" class="btn-secondary">No modificar, ir al cuestionario</button>
-                        <button id="btn-save-obs" class="btn-primary">Guardar observaciones y continuar</button>
-                    </div>
+                    <p class="hint">Registrá las observaciones de clase. Cada observación indica que estuvo presente ese día.</p>
 
                     <!-- Asistencia -->
-                    <div id="obs-attendance-inputs" style="background: var(--surface-subtle); padding: var(--space-4); border-radius: var(--radius-lg); margin-bottom: var(--space-4);">
-                        <h4 style="margin-top: 0; font-size: 1rem;">Asistencia</h4>
+                    <div id="obs-attendance-inputs" style="background: var(--surface-subtle); padding: var(--space-5); border-radius: var(--radius-lg); margin-bottom: var(--space-5); border: 2px solid var(--border-default);">
+                        <h4 style="margin-top: 0; font-size: 1rem; margin-bottom: var(--space-4);">Asistencia del periodo</h4>
                         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4);">
                             <div>
                                 <label for="obs-attendance-total">Total de clases:</label>
@@ -261,42 +291,92 @@
                                 <input type="number" id="obs-attendance-absences" min="0" value="0">
                             </div>
                         </div>
-                        <p id="obs-attendance-percentage" class="hint" style="margin-top: var(--space-2);"></p>
+                        <p id="obs-attendance-percentage" class="hint" style="margin-top: var(--space-3); font-family: var(--font-mono); font-weight: 600;"></p>
                     </div>
 
-                    <!-- Resumen de asistencia -->
-                    <div id="obs-attendance-summary" aria-live="polite" style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-md); border: 2px solid var(--border-default);"></div>
-
                     <!-- Carga rapida -->
-                    <div class="obs-quick-input">
-                        <label>Carga rapida de observaciones:</label>
-                        <p class="hint" style="margin-top: 0; margin-bottom: var(--space-2);">Formato: <strong>dd/mm - Comentario</strong>. Ej: 15/3 - Participó activamente</p>
-                        <div style="display: flex; gap: var(--space-2); align-items: flex-start;">
-                            <textarea id="obs-quick-text" rows="3" placeholder="15/3 - Participó activamente&#10;20/3 - No realizó la tarea&#10;..." style="flex: 1;"></textarea>
-                            <button id="btn-parse-obs" class="btn-secondary" style="margin-top: 0; white-space: nowrap;">Agregar</button>
+                    <div class="obs-quick-input" style="background: var(--surface); padding: var(--space-4); border-radius: var(--radius-lg); border: 2px solid var(--border-default); margin-bottom: var(--space-4);">
+                        <label style="margin-top: 0;">Carga rápida de observaciones:</label>
+                        <p class="hint" style="margin-top: 0; margin-bottom: var(--space-3);">Formato: <strong>dd/mm - Comentario</strong>. Una observación por línea.</p>
+                        <div style="display: flex; gap: var(--space-3); align-items: flex-start;">
+                            <textarea id="obs-quick-text" rows="4" placeholder="15/3 - No trajo el material&#10;20/3 - Interrumpió en clase&#10;25/3 - Participó activamente&#10;..." style="flex: 1;"></textarea>
+                            <button id="btn-parse-obs" class="btn-primary" style="margin-top: 0; white-space: nowrap;">Agregar</button>
                         </div>
+                    </div>
+
+                    <!-- Codigos de observacion -->
+                    <div class="obs-codes-legend" style="background: var(--accent-subtle); padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); margin-bottom: var(--space-4); border-left: 3px solid var(--accent);">
+                        <p class="hint" style="margin: 0; color: var(--text-secondary);">
+                            <strong>Códigos:</strong>
+                            <span style="display: inline-flex; gap: var(--space-3); flex-wrap: wrap; margin-top: var(--space-1);">
+                                <span><strong style="color: var(--success-text);">P</strong> = Presente</span>
+                                <span><strong style="color: var(--info-text);">A</strong> = Ausente</span>
+                                <span><strong style="color: var(--secondary);">P-EXC</strong> = Presente Excelente</span>
+                                <span><strong style="color: var(--warning-text);">P-X</strong> = Presente sin material</span>
+                                <span><strong style="color: var(--text-secondary);">T</strong> = Tardanza</span>
+                            </span>
+                        </p>
                     </div>
 
                     <!-- Tabla de observaciones -->
-                    <p class="hint obs-code-legend" style="margin-bottom:var(--space-3);line-height:1.6">
-                        <strong>Codigos:</strong> P = Presente, A = Ausente, P-EXC = Presente Excelente, P-X = Presente sin material, T = Tardanza
-                    </p>
-                    <div class="obs-table-container">
-                        <div class="obs-table-header" style="grid-template-columns: 100px 90px 1fr 40px;">
+                    <div class="obs-table-container" style="background: var(--surface); border-radius: var(--radius-lg); border: 2px solid var(--border-default); overflow: hidden; margin-bottom: var(--space-4);">
+                        <div class="obs-table-header" style="background: var(--surface-subtle); padding: var(--space-3) var(--space-4); grid-template-columns: 100px 100px 1fr 44px;">
                             <span>Fecha</span>
-                            <span>Codigo</span>
-                            <span>Observacion</span>
+                            <span>Código</span>
+                            <span>Observación</span>
                             <span></span>
                         </div>
-                        <div id="obs-table-body"></div>
-                        <button id="btn-add-obs-row" class="btn-secondary btn-sm"><i data-lucide="plus" style="width:16px;height:16px;"></i> Agregar fila</button>
+                        <div id="obs-table-body" style="padding: var(--space-2);"></div>
+                        <div style="padding: var(--space-2) var(--space-3); border-top: 1px solid var(--border-subtle);">
+                            <button id="btn-add-obs-row" class="btn-secondary btn-sm"><i data-lucide="plus" style="width:16px;height:16px;"></i> Agregar fila</button>
+                        </div>
                     </div>
+
+                    <!-- Resumen -->
+                    <div id="obs-attendance-summary" aria-live="polite" style="font-family: var(--font-mono); font-size: 0.875rem; color: var(--text-secondary); margin-bottom: var(--space-4); padding: var(--space-3); background: var(--surface-subtle); border-radius: var(--radius-md); border: 1px solid var(--border-default);"></div>
+
+                    <!-- Acciones -->
+                    <div class="obs-actions" style="display: flex; gap: var(--space-3); flex-wrap: wrap;">
+                        <button id="btn-skip-obs" class="btn-secondary" style="flex: 1; min-width: 200px;">Omitir y continuar</button>
+                        <button id="btn-save-obs" class="btn-primary" style="flex: 2; min-width: 280px; padding: var(--space-4) var(--space-6); font-size: 1rem;">Guardar y continuar <i data-lucide="arrow-right" style="width:18px;height:18px;"></i></button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Paso 2: Cuestionario con sub-pasos clickeables por seccion -->
+            <section id="step-2" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
+                <div id="wizard-substep-label" class="wizard-substep-label" role="status" aria-live="polite">Paso 2: Cuestionario</div>
+
+                <!-- Secciones del cuestionario (clickeables) -->
+                <div id="questionnaire-sections-nav" style="display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-5);" role="tablist" aria-label="Secciones del cuestionario">
+                    <button class="qsection-tab active" data-section="pedagogical" role="tab" aria-selected="true" style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); border: 2px solid var(--border-default); background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast);">
+                        <i data-lucide="book-open" style="width:16px;height:16px;"></i> Pedagógico
+                        <span class="qsection-count" data-section="pedagogical" style="font-family: var(--font-mono); font-size: 0.75rem; background: var(--surface-subtle); padding: 1px 6px; border-radius: var(--radius-pill);"></span>
+                    </button>
+                    <button class="qsection-tab" data-section="socioemotional" role="tab" aria-selected="false" style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); border: 2px solid var(--border-default); background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast);">
+                        <i data-lucide="heart" style="width:16px;height:16px;"></i> Socioemocional
+                        <span class="qsection-count" data-section="socioemotional" style="font-family: var(--font-mono); font-size: 0.75rem; background: var(--surface-subtle); padding: 1px 6px; border-radius: var(--radius-pill);"></span>
+                    </button>
+                    <button class="qsection-tab" data-section="content" role="tab" aria-selected="false" style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); border: 2px solid var(--border-default); background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast);">
+                        <i data-lucide="file-text" style="width:16px;height:16px;"></i> Contenidos
+                        <span class="qsection-count" data-section="content" style="font-family: var(--font-mono); font-size: 0.75rem; background: var(--surface-subtle); padding: 1px 6px; border-radius: var(--radius-pill);"></span>
+                    </button>
+                    <button class="qsection-tab" data-section="valoracion" role="tab" aria-selected="false" style="display: inline-flex; align-items: center; gap: var(--space-2); padding: var(--space-2) var(--space-4); border-radius: var(--radius-pill); border: 2px solid var(--border-default); background: var(--surface); color: var(--text-secondary); font-size: 0.875rem; font-weight: 600; cursor: pointer; transition: all var(--transition-fast);">
+                        <i data-lucide="award" style="width:16px;height:16px;"></i> Valoración
+                        <span class="qsection-count" data-section="valoracion" style="font-family: var(--font-mono); font-size: 0.75rem; background: var(--surface-subtle); padding: 1px 6px; border-radius: var(--radius-pill);"></span>
+                    </button>
+                </div>
+
+                <!-- Barra de progreso de seccion -->
+                <div id="question-counter" class="question-counter" aria-live="polite" style="margin-bottom: var(--space-2);">Pregunta 1 de 6 en Pedagógico</div>
+                <div class="question-progress-bar">
+                    <div id="question-progress-fill" class="question-progress-fill" style="width: 0%" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" aria-label="Progreso del cuestionario"></div>
                 </div>
 
                 <!-- Tarjeta de pregunta -->
-                <div id="question-card" class="question-card">
-                    <h3 id="question-section-header" class="question-section-header" aria-live="polite"></h3>
-                    <div id="question-title-label" class="question-title-label"></div>
+                <div id="question-card" class="question-card" style="max-width: 640px; margin: var(--space-6) auto;">
+                    <div id="question-section-header" class="question-section-header" data-section="" aria-live="polite" style="display: none;"></div>
+                    <div id="question-title-label" class="question-title-label" style="display: none;"></div>
                     <div id="current-question-text" class="question-text-large"></div>
                     <div id="current-question-options" class="answer-buttons"></div>
                     <button id="question-skip-text" class="skip-btn">Omitir esta pregunta</button>
@@ -308,65 +388,68 @@
                     <button id="btn-skip-all-questions" class="btn-secondary btn-sm">Generar solo con observaciones</button>
                     <button id="btn-exit-without-save" class="btn-ghost btn-sm">Salir sin guardar</button>
                 </div>
-
-                <!-- Nota: El panel de asistencia fue movido al panel de observaciones -->
             </section>
 
-            <!-- Paso 2: Configuracion del Informe -->
-            <section id="step-2" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
-                <h2>Configuracion del Informe</h2>
+            <!-- Paso 3: Configuracion del Informe -->
+            <section id="step-3" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
+                <h2 style="margin-bottom: var(--space-6);">Configuración del Informe</h2>
 
-                <div class="selection-section">
+                <!-- Modelo de IA mejorado -->
+                <div class="selection-section" style="background: var(--surface); padding: var(--space-5); border-radius: var(--radius-xl); border: 2px solid var(--border-default); margin-bottom: var(--space-5);">
                     <div class="selection-header">
-                        <span class="selection-label">Modelo de IA</span>
-                        <span class="selection-hint">El recomendado ya está seleccionado. Podés cambiarlo si preferís otro.</span>
+                        <span class="selection-label" style="font-size: 1.0625rem;">Modelo de IA</span>
+                        <span class="selection-hint">Elegí el modelo que genera los informes</span>
                     </div>
-                    <div id="model-cards" class="selection-list" role="radiogroup" aria-label="Modelo de IA">
+                    <div id="model-cards" class="selection-list" role="radiogroup" aria-label="Modelo de IA" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-3);">
                     </div>
                     <div id="model-cards-extra" class="hidden"></div>
-                    <button id="btn-show-more-models" class="btn-ghost btn-sm selection-show-more hidden">
+                    <button id="btn-show-more-models" class="btn-ghost btn-sm selection-show-more hidden" style="margin-top: var(--space-3);">
                         <i data-lucide="chevron-down" style="width:14px;height:14px;"></i>
-                        Mostrar mas modelos
+                        Mostrar más modelos
                     </button>
                 </div>
 
-                <div class="selection-section">
+                <!-- Variante del informe -->
+                <div class="selection-section" style="background: var(--surface); padding: var(--space-5); border-radius: var(--radius-xl); border: 2px solid var(--border-default); margin-bottom: var(--space-5);">
                     <div class="selection-header">
-                        <span class="selection-label">Variante del informe</span>
+                        <span class="selection-label" style="font-size: 1.0625rem;">Variante del informe</span>
+                        <span class="selection-hint">Determina el largo y el nivel de detalle</span>
                     </div>
-                    <div id="variants-list" class="selection-list" role="radiogroup" aria-label="Variante del informe">
+                    <div id="variants-list" class="selection-list" role="radiogroup" aria-label="Variante del informe" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3);">
                     </div>
                 </div>
 
-                <div style="display:flex;gap:var(--space-3);flex-wrap:wrap;">
-                    <button id="btn-step-2" class="btn-primary" aria-label="Generar informe">Generar Informe</button>
+                <div style="display:flex;gap:var(--space-3);flex-wrap:wrap; margin-top: var(--space-6);">
+                    <button id="btn-step-3" class="btn-primary" style="padding: var(--space-4) var(--space-8); font-size: 1rem;" aria-label="Generar informe">
+                        <i data-lucide="sparkles" style="width:20px;height:20px;"></i> Generar Informe
+                    </button>
                     <button id="btn-back-to-questionnaire" class="btn-ghost" aria-label="Volver al cuestionario">Volver al cuestionario</button>
                 </div>
             </section>
 
-            <!-- Paso 3: Informe Generado -->
-            <section id="step-3" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
-                <h2>Informe Generado</h2>
-                <div id="report-preview" class="paper-sheet" role="region" aria-live="polite" aria-atomic="true" aria-label="Vista previa del informe">
+            <!-- Paso 4: Informe Generado -->
+            <section id="step-4" class="step-content" role="tabpanel" aria-labelledby="progress-bar">
+                <h2 style="margin-bottom: var(--space-5);">Informe Generado</h2>
+                <div id="report-preview" class="paper-sheet" role="region" aria-live="polite" aria-atomic="true" aria-label="Vista previa del informe" style="margin-bottom: var(--space-5);">
                     <p class="hint">Completá los pasos anteriores para generar un informe.</p>
                 </div>
-                <div id="report-actions" class="hidden">
+                <div id="report-actions" class="hidden" style="display: flex; gap: var(--space-3); flex-wrap: wrap; margin-bottom: var(--space-5);">
                     <button id="btn-download" class="btn-secondary"><i data-lucide="download" style="width:18px;height:18px;"></i> Descargar</button>
                     <button id="btn-modify-report" class="btn-secondary"><i data-lucide="sliders-horizontal" style="width:18px;height:18px;"></i> Modificar</button>
-                    <button id="btn-next-student" class="btn-primary"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i> Siguiente alumno</button>
-                    <button id="btn-go-dashboard" class="btn-ghost">Dashboard</button>
+                    <button id="btn-next-student" class="btn-primary" style="flex: 1; min-width: 200px;"><i data-lucide="arrow-right" style="width:18px;height:18px;"></i> Siguiente alumno</button>
+                    <button id="btn-go-dashboard" class="btn-ghost">Volver al curso</button>
                     <button id="btn-finish" class="btn-ghost">Finalizar</button>
                 </div>
                 <div id="customization-panel" class="hidden">
                     <div class="customization-card">
                         <h3>Ajustar el informe</h3>
-                        <p class="hint" style="margin-bottom:12px;">Describi que queres cambiar y regenera el informe.</p>
+                        <p class="hint" style="margin-bottom:12px;">Describí qué querés cambiar y regenerá el informe.</p>
                         <div class="length-buttons">
-                            <button class="btn-secondary btn-sm length-btn" data-length="C" aria-pressed="false">Un parrafo</button>
+                            <button class="btn-secondary btn-sm length-btn" data-length="C" aria-pressed="false">Un párrafo</button>
                             <button class="btn-secondary btn-sm length-btn" data-length="A" aria-pressed="false">Media carilla</button>
                             <button class="btn-secondary btn-sm length-btn" data-length="B" aria-pressed="false">Una carilla</button>
                         </div>
-                        <textarea id="customization-text" class="customization-textarea" placeholder="Ej: que sea mas empatico, mas corto, que mencione su participacion en clase..."></textarea>
+                        <textarea id="customization-text" class="customization-textarea" placeholder="Ej: que sea más empático, más corto, que mencione su participación en clase..."></textarea>
                         <span id="customization-counter" class="hint" style="display:none;margin-top:4px;text-align:right;"></span>
                         <button id="btn-toggle-advanced" class="btn-ghost btn-sm" style="margin:8px 0;">Ajustes avanzados</button>
                         <div id="advanced-sliders" class="hidden">
@@ -377,9 +460,9 @@
                                     <span class="slider-labels" aria-hidden="true"><span>Casual</span><span>Formal</span></span>
                                 </div>
                                 <div class="slider-row">
-                                    <label for="slider-empathy">Empatia</label>
+                                    <label for="slider-empathy">Empatía</label>
                                     <input type="range" id="slider-empathy" min="0" max="100" value="50" aria-label="Empatia: de Objetivo a Empatico">
-                                    <span class="slider-labels" aria-hidden="true"><span>Objetivo</span><span>Empatico</span></span>
+                                    <span class="slider-labels" aria-hidden="true"><span>Objetivo</span><span>Empático</span></span>
                                 </div>
                                 <div class="slider-row">
                                     <label for="slider-detail">Detalle</label>
@@ -433,6 +516,6 @@
         </div>
     </div>
 
-    <script type="module" src="/js/app.js?v=15"></script>
+    <script type="module" src="/js/app.js?v=16"></script>
 </body>
 </html>

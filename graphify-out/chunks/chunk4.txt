@@ -1,3 +1,0 @@
-/home/mrberru/projects/InformesCreator/screenshot_login.png
-/home/mrberru/projects/InformesCreator/hero.png
-/home/mrberru/projects/InformesCreator/app/web/static/images/hero.png

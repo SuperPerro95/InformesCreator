@@ -1,6 +1,0 @@
-/home/mrberru/projects/InformesCreator/README.md
-/home/mrberru/projects/InformesCreator/CLAUDE.md
-/home/mrberru/projects/InformesCreator/CLAUDE.original.md
-/home/mrberru/projects/InformesCreator/app/version.txt
-/home/mrberru/projects/InformesCreator/app/requirements.txt
-/home/mrberru/projects/InformesCreator/app/requirements-dev.txt
