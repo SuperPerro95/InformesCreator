@@ -79,6 +79,16 @@ export function closeMobileSidebar() {
   if (sidebar) sidebar.classList.remove('open');
   const backdrop = document.getElementById('sidebar-backdrop');
   if (backdrop) backdrop.classList.remove('visible');
+  const userMenu = $('sidebar-user-menu-expanded');
+  if (userMenu && !userMenu.classList.contains('hidden')) {
+    userMenu.classList.add('hidden');
+    const chevronBtn = $('btn-sidebar-user-menu');
+    if (chevronBtn) {
+      const chevron = chevronBtn.querySelector('[data-lucide]');
+      if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
+      if (window.lucide) lucide.createIcons({ nodes: [chevronBtn] });
+    }
+  }
 }
 
 export async function createCourseFromSidebar() {

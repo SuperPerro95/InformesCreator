@@ -130,30 +130,6 @@ export function announceStep(step) {
   if (el) el.textContent = labels[step] || '';
 }
 
-export function toggleUserDropdown() {
-  const dd = $('user-dropdown');
-  if (dd.classList.contains('hidden')) {
-    show(dd);
-    document.addEventListener('click', closeUserDropdownOutside);
-  } else {
-    hide(dd);
-    document.removeEventListener('click', closeUserDropdownOutside);
-  }
-}
-
-export function closeUserDropdownOutside(e) {
-  const menu = $('header-user-menu');
-  if (menu && !menu.contains(e.target)) {
-    hide($('user-dropdown'));
-    document.removeEventListener('click', closeUserDropdownOutside);
-  }
-}
-
-export function closeUserDropdownOnItemClick() {
-  hide($('user-dropdown'));
-  document.removeEventListener('click', closeUserDropdownOutside);
-}
-
 export const HELP_CONTENT = {
   onboarding: `
 <h4>Configuración inicial</h4>

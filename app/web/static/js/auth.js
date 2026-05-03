@@ -168,7 +168,7 @@ export async function initAuth() {
   loadAuthState();
   const authState = getAuthState();
   if (authState.loggedIn) {
-    const headerUsername = $('header-username');
+    const headerUsername = $('sidebar-username');
     if (headerUsername) headerUsername.textContent = authState.username;
     return;
   }
@@ -177,7 +177,7 @@ export async function initAuth() {
     if (profile.username) {
       setAuthState({ loggedIn: true, username: profile.display_name || profile.username });
       saveAuthState();
-      const headerUsername = $('header-username');
+      const headerUsername = $('sidebar-username');
       if (headerUsername) headerUsername.textContent = profile.display_name || profile.username;
     }
   } catch (err) {
@@ -208,7 +208,7 @@ export async function doLogin() {
     const res = await apiPost('/auth/login', { username, password });
     setAuthState({ loggedIn: true, username: res.username });
     saveAuthState();
-    $('header-username').textContent = res.display_name || res.username;
+    $('sidebar-username').textContent = res.display_name || res.username;
     clearAuthScreen();
     navigateTo('#/');
     import('./app.js').then(mod => {
@@ -428,7 +428,7 @@ export async function saveProfile() {
   try {
     const res = await apiPut('/auth/profile', payload);
     if (res.display_name) {
-      $('header-username').textContent = res.display_name;
+      $('sidebar-username').textContent = res.display_name;
     }
     const btn = $('btn-save-profile');
     btn.classList.add('btn-saved');
