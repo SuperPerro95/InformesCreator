@@ -42,9 +42,37 @@ dist/
 .claude/
 .playwright-mcp/
 .coverage
-*.Zone.Identifier
+*Zone.Identifier
 # Added by code-review-graph
 .code-review-graph/
 .worktrees/
 
-.worktrees/
+# Archivos de configuración de agentes/IDEs
+.cursorrules
+.windsurfrules
+AGENTS.md
+CLAUDE.md
+DESIGN.json
+DESIGN.md
+GEMINI.md
+PRODUCT.md
+.mcp.json
+.opencode.json
+.cursor/
+.kiro/
+
+# Scripts de build y empaquetado desktop
+build_dist.py
+build_update.py
+claude-ollama.ps1
+app/build_exe.py
+app/install_gui.py
+app/launcher.py
+app/updater.py
+app/requirements.txt
+app/requirements-dev.txt
+app/version.txt
+app/main.py
+
+# Tests
+tests/
