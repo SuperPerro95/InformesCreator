@@ -27,7 +27,7 @@ def _get_config_dir() -> Path:
 
 
 DEFAULT_CONFIG = {
-    "base_path": "E:\\Google_Drive\\Base\\Mi escuela\\CURSOS",
+    "base_path": "",
     "ollama_url": "http://localhost:11434",
     "model": "gemma4:31b-cloud",
     "output_dir": "Informes",

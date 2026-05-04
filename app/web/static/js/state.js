@@ -24,6 +24,7 @@ let _selectedStudentIndex = -1;
 let _editingQuestionnaireId = null;
 let _availableModels = [];
 let _currentHelpScreen = '';
+let _skipOnboardingOnce = false;
 
 export function getSelectedCourse() { return _selectedCourse; }
 export function setSelectedCourse(v) {
@@ -99,3 +100,6 @@ export function setAvailableModels(v) { _availableModels = v; }
 
 export function getCurrentHelpScreen() { return _currentHelpScreen; }
 export function setCurrentHelpScreen(v) { _currentHelpScreen = v; }
+
+export function getSkipOnboardingOnce() { return _skipOnboardingOnce; }
+export function setSkipOnboardingOnce(v) { _skipOnboardingOnce = v; }

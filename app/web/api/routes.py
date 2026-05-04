@@ -675,20 +675,24 @@ def set_student_questionnaire_endpoint(course: str, filename: str, req: SetStude
 
 @router.get("/config")
 def get_config(current_user: str = Depends(get_current_user)):
+    raw_bp = config.get("base_path", "")
+    folder_exists = False
+    if raw_bp:
+        folder_exists = config.base_path.exists() and config.base_path.is_dir()
     return {
-        "base_path": str(config.base_path),
+        "base_path": raw_bp,
         "ollama_url": config.ollama_url,
         "model": config.model,
         "output_dir": str(config.output_dir),
         "default_variant": config.default_variant,
-        "folder_exists": config.base_path.exists() and config.base_path.is_dir(),
+        "folder_exists": folder_exists,
     }
 
 
 @router.post("/config")
 def update_config(updates: Dict[str, str], current_user: str = Depends(get_current_user)):
     # Si se envia base_path sin output_dir, auto-setear output_dir dentro de base_path
-    if "base_path" in updates and "output_dir" not in updates:
+    if updates.get("base_path") and "output_dir" not in updates:
         from pathlib import Path
         bp = Path(updates["base_path"])
         if bp.is_absolute():

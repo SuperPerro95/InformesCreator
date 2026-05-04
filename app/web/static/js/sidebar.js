@@ -1,5 +1,5 @@
 import { apiGet, apiPost } from './api.js';
-import { $, show, hide, showToast, setLoading, refreshIcons } from './utils.js';
+import { $, show, hide, showToast, setLoading, refreshIcons, icon } from './utils.js';
 import { getSelectedCourse } from './state.js';
 import { navigateTo } from './auth.js';
 import { on } from './events.js';
@@ -84,9 +84,7 @@ export function closeMobileSidebar() {
     userMenu.classList.add('hidden');
     const chevronBtn = $('btn-sidebar-user-menu');
     if (chevronBtn) {
-      const chevron = chevronBtn.querySelector('[data-lucide]');
-      if (chevron) chevron.setAttribute('data-lucide', 'chevron-up');
-      if (window.lucide) lucide.createIcons({ nodes: [chevronBtn] });
+      chevronBtn.innerHTML = icon('chevron-up', 14);
     }
   }
 }
@@ -113,8 +111,7 @@ export async function createCourseFromSidebar() {
     if (btnNew) {
       btnNew.classList.remove('adding');
       btnNew.setAttribute('aria-label', 'Nuevo curso');
-      btnNew.innerHTML = '<i data-lucide="plus" style="width:18px;height:18px;"></i>';
-      if (window.lucide) lucide.createIcons({ nodes: [btnNew] });
+      btnNew.innerHTML = icon('plus', 18);
     }
     renderSidebarCourses();
   } catch (err) {

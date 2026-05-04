@@ -1,19 +1,30 @@
 import { apiGet, apiPut, apiPost } from './api.js';
 import { $, show, hide, showToast, setLoading, showFieldError, clearFieldErrors, refreshIcons } from './utils.js';
-import { getAuthState, setAuthState, getSystemStatus } from './state.js';
+import { getAuthState, setAuthState, getSystemStatus, setSkipOnboardingOnce } from './state.js';
 
 function detectDefaultAuthTab() {
-  // Smart default: show Register if no one has ever logged in, Login otherwise
+  // Smart default: show Register if no valid session exists, Login otherwise
   const raw = localStorage.getItem('informescreator_auth');
-  return (raw === null) ? 'register' : 'login';
+  if (!raw) return 'register';
+  try {
+    const state = JSON.parse(raw);
+    return state.loggedIn ? 'login' : 'register';
+  } catch {
+    return 'register';
+  }
 }
 
-const UNIFIED_AUTH_TEMPLATE = (defaultTab) => {
-  const loginActive = defaultTab === 'login' ? 'active' : '';
-  const regActive = defaultTab === 'register' ? 'active' : '';
-  const loginHidden = defaultTab !== 'login' ? 'hidden' : '';
-  const regHidden = defaultTab !== 'register' ? 'hidden' : '';
-  return `
+export async function renderAuthCard(mode = 'login') {
+  const m = await import('./utils.js');
+  const root = $('auth-root');
+  if (!root) return;
+  
+  const loginHidden = mode === 'login' ? '' : 'hidden';
+  const regHidden = mode === 'register' ? '' : 'hidden';
+  const loginActive = mode === 'login' ? 'active' : '';
+  const regActive = mode === 'register' ? 'active' : '';
+
+  root.innerHTML = `
   <div class="auth-card">
     <div class="auth-header">
       <div class="auth-tabs">
@@ -33,9 +44,9 @@ const UNIFIED_AUTH_TEMPLATE = (defaultTab) => {
           <div class="auth-field">
             <label for="login-password">Contraseña</label>
             <div class="auth-input-wrap">
-              <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" minlength="4" required>
+              <input type="password" id="login-password" placeholder="Tu contraseña" autocomplete="current-password" required>
               <button type="button" class="btn-toggle-password" data-target="login-password" aria-label="Mostrar contraseña">
-                <i data-lucide="eye"></i>
+                ${m.icon('eye', 18)}
               </button>
             </div>
             <p class="auth-field-error" id="login-password-error" role="alert"></p>
@@ -63,7 +74,7 @@ const UNIFIED_AUTH_TEMPLATE = (defaultTab) => {
             <div class="auth-input-wrap">
               <input type="password" id="reg-password" placeholder="Elegí una contraseña" autocomplete="new-password" minlength="4" required>
               <button type="button" class="btn-toggle-password" data-target="reg-password" aria-label="Mostrar contraseña">
-                <i data-lucide="eye"></i>
+                ${m.icon('eye', 18)}
               </button>
             </div>
             <p class="auth-field-error" id="reg-password-error" role="alert"></p>
@@ -73,7 +84,7 @@ const UNIFIED_AUTH_TEMPLATE = (defaultTab) => {
             <div class="auth-input-wrap">
               <input type="password" id="reg-password-confirm" placeholder="Repetí la contraseña" autocomplete="new-password" minlength="4" required>
               <button type="button" class="btn-toggle-password" data-target="reg-password-confirm" aria-label="Mostrar contraseña">
-                <i data-lucide="eye"></i>
+                ${m.icon('eye', 18)}
               </button>
             </div>
             <p class="auth-field-error" id="reg-password-confirm-error" role="alert"></p>
@@ -87,7 +98,9 @@ const UNIFIED_AUTH_TEMPLATE = (defaultTab) => {
     </div>
   </div>
 `;
-};
+  
+  bindAuthListeners();
+}
 
 function bindAuthListeners() {
   const loginForm = $('login-form');
@@ -123,9 +136,7 @@ function bindAuthListeners() {
     const el = $(id);
     if (!el) return;
     el.addEventListener('input', () => {
-      import('./utils.js').then(m => {
-        m.clearFieldErrors(['login-username-error', 'login-password-error', 'reg-username-error', 'reg-password-error', 'reg-password-confirm-error']);
-      });
+      clearFieldErrors(['login-username-error', 'login-password-error', 'reg-username-error', 'reg-password-error', 'reg-password-confirm-error']);
       const loginError = $('login-error');
       const regError = $('register-error');
       if (loginError) loginError.textContent = '';
@@ -140,11 +151,9 @@ function bindAuthListeners() {
       if (!input) return;
       const isPassword = input.type === 'password';
       input.type = isPassword ? 'text' : 'password';
-      const icon = btn.querySelector('i, svg');
-      if (icon && window.lucide) {
-        icon.setAttribute('data-lucide', isPassword ? 'eye-off' : 'eye');
-        lucide.createIcons({ nodes: [btn] });
-      }
+      import('./utils.js').then(m => {
+        btn.innerHTML = m.icon(isPassword ? 'eye-off' : 'eye', 18);
+      });
     });
   });
 }
@@ -155,41 +164,6 @@ export function showLoginScreen() {
 
 export function showRegisterScreen() {
   renderAuthCard('register');
-}
-
-export function renderAuthCard(mode) {
-  const root = $('auth-root');
-  if (!root) return;
-  
-  if (root.innerHTML === '' || !root.querySelector('.auth-card')) {
-    root.innerHTML = UNIFIED_AUTH_TEMPLATE(mode || detectDefaultAuthTab());
-    bindAuthListeners();
-  }
-  
-  const stage = $('landing-stage');
-  if (stage) {
-    stage.classList.remove('hidden');
-    root.classList.remove('hidden');
-  }
-
-  const tabLogin = $('tab-login');
-  const tabRegister = $('tab-register');
-  const paneLogin = $('pane-login');
-  const paneRegister = $('pane-register');
-
-  if (mode === 'login') {
-    tabLogin.classList.add('active');
-    tabRegister.classList.remove('active');
-    paneLogin.classList.remove('hidden');
-    paneRegister.classList.add('hidden');
-  } else {
-    tabLogin.classList.remove('active');
-    tabRegister.classList.add('active');
-    paneLogin.classList.add('hidden');
-    paneRegister.classList.remove('hidden');
-  }
-  
-  if (window.lucide) lucide.createIcons({ nodes: [root] });
 }
 
 export function clearAuthScreen() {
@@ -222,13 +196,9 @@ export function saveAuthState() {
 }
 
 export function navigateTo(hash) {
-  // Use a simple global flag to prevent navigation loops/races
   if (window._isNavigating) return;
   window._isNavigating = true;
-  
   window.location.hash = hash;
-  
-  // Clear flag in next tick
   setTimeout(() => {
     window._isNavigating = false;
   }, 50);
@@ -238,21 +208,22 @@ export async function initAuth() {
   loadAuthState();
   const authState = getAuthState();
 
-  // Even if local state says loggedIn, verify with server to ensure user still exists
   try {
     const profile = await apiGet('/auth/me');
     if (profile.username) {
-      setAuthState({ loggedIn: true, username: profile.display_name || profile.username });
+      setAuthState({ 
+        loggedIn: true, 
+        username: profile.display_name || profile.username,
+        display_name: profile.display_name
+      });
       saveAuthState();
       const headerUsername = $('sidebar-username');
       if (headerUsername) headerUsername.textContent = profile.display_name || profile.username;
     } else {
-      // Server says no active session or user deleted
       setAuthState({ loggedIn: false, username: '' });
       saveAuthState();
     }
   } catch (err) {
-    // If 404 (no users at all) or 401 (unauthorized), clear local state
     setAuthState({ loggedIn: false, username: '' });
     saveAuthState();
   }
@@ -277,33 +248,28 @@ export async function doLogin() {
     valid = false;
   }
   if (!valid) return;
-  setLoading(true);
+
   try {
+    setLoading(true);
     const res = await apiPost('/auth/login', { username, password });
-    setAuthState({ loggedIn: true, username: res.username });
-    saveAuthState();
-    $('sidebar-username').textContent = res.display_name || res.username;
-    clearAuthScreen();
-
-    // Redirect to app
-    const appMod = await import('./app.js');
-    await appMod.preloadSystemStatus();
-    const { getSystemStatus } = await import('./state.js');
-    const status = getSystemStatus();
-
-    if (!status.ollamaRunning || !status.folderOk) {
-      navigateTo('#/onboarding');
-    } else {
-      navigateTo('#/courses');
-    }
-  } catch (err) {
-    if (err.status === 401) {
-      formErrorEl.textContent = 'Usuario o contraseña incorrectos.';
-    } else {
-      formErrorEl.textContent = 'No se pudo iniciar sesión. ' + (err.message || '');
-    }
-  } finally {
     setLoading(false);
+    setAuthState({ 
+      loggedIn: true, 
+      username: res.display_name || res.username,
+      display_name: res.display_name
+    });
+    saveAuthState();
+    
+    const headerUsername = $('sidebar-username');
+    if (headerUsername) headerUsername.textContent = res.display_name || res.username;
+    
+    showToast(`¡Hola, ${res.display_name || res.username}!`, 'success');
+    
+    // Redirect to courses
+    navigateTo('#/courses');
+  } catch (err) {
+    setLoading(false);
+    formErrorEl.textContent = err.detail || 'Error al ingresar. Revisa tus credenciales.';
   }
 }
 
@@ -311,53 +277,35 @@ export async function doRegister() {
   const username = $('reg-username').value.trim();
   const displayName = $('reg-display-name').value.trim();
   const password = $('reg-password').value;
-  const passwordConfirm = $('reg-password-confirm').value;
+  const confirm = $('reg-password-confirm').value;
   const formErrorEl = $('register-error');
   formErrorEl.textContent = '';
   clearFieldErrors(['reg-username-error', 'reg-password-error', 'reg-password-confirm-error']);
+  
   let valid = true;
-  if (!username) {
-    showFieldError('reg-username-error', 'Elegi un usuario.');
-    valid = false;
-  }
-  if (!password) {
-    showFieldError('reg-password-error', 'Elegí una contraseña.');
-    valid = false;
-  } else if (password.length < 4) {
-    showFieldError('reg-password-error', 'La contraseña debe tener al menos 4 caracteres.');
-    valid = false;
-  }
-  if (!passwordConfirm) {
-    showFieldError('reg-password-confirm-error', 'Repetí la contraseña.');
-    valid = false;
-  } else if (password !== passwordConfirm) {
-    showFieldError('reg-password-confirm-error', 'Las contraseñas no coinciden.');
-    valid = false;
-  }
+  if (!username) { showFieldError('reg-username-error', 'Elegí un usuario.'); valid = false; }
+  if (!password) { showFieldError('reg-password-error', 'Ingresá una contraseña.'); valid = false; }
+  else if (password.length < 4) { showFieldError('reg-password-error', 'Mínimo 4 caracteres.'); valid = false; }
+  if (password !== confirm) { showFieldError('reg-password-confirm-error', 'Las contraseñas no coinciden.'); valid = false; }
   if (!valid) return;
-  setLoading(true);
+
   try {
-    await apiPost('/auth/register', { username, password, display_name: displayName || undefined });
-
-    // Auto-login after registration
-    const loginUser = $('login-username');
-    const loginPass = $('login-password');
-    if (loginUser) loginUser.value = username;
-    if (loginPass) loginPass.value = password;
-
-    await doLogin();
-  } catch (err) {
-    formErrorEl.textContent = (err.detail || err.message) || 'No se pudo crear el perfil.';
-  } finally {
+    setLoading(true);
+    await apiPost('/auth/register', { username, password, display_name: displayName });
     setLoading(false);
+    showToast('Perfil creado con éxito. Ya podés ingresar.', 'success');
+    renderAuthCard('login');
+  } catch (err) {
+    setLoading(false);
+    formErrorEl.textContent = err.detail || 'No se pudo crear el perfil.';
   }
 }
 
 export async function doLogout() {
   try {
     await apiPost('/auth/logout', {});
-  } catch (err) {
-  }
+  } catch (err) {}
+  
   setAuthState({ loggedIn: false, username: '' });
   saveAuthState();
   closeProfileModal();
@@ -367,63 +315,79 @@ export async function doLogout() {
 const PROFILE_MODAL_TEMPLATE = `
   <div id="profile-modal" class="help-modal">
     <div class="help-overlay"></div>
-    <div class="help-panel" style="max-width: 460px;">
+    <div class="help-panel">
       <div class="help-header">
         <h3>Mi Perfil</h3>
-        <button id="btn-close-profile" class="btn-ghost btn-sm">
-          <i data-lucide="x" style="width:18px;height:18px;"></i>
+        <button id="btn-close-profile" class="btn-ghost icon-btn" aria-label="Cerrar">
+          <i data-lucide="x" style="width:20px;height:20px;"></i>
         </button>
       </div>
-      <div id="profile-content">
+      <div class="help-content">
         <div class="profile-avatar-section">
           <div class="profile-avatar">
             <i data-lucide="user" style="width:32px;height:32px;"></i>
           </div>
           <div class="profile-user-info">
             <span class="profile-user-label">Usuario</span>
-            <span id="profile-username" class="profile-user-value"></span>
+            <span id="profile-username" class="profile-user-value">Docente</span>
           </div>
         </div>
-        <form id="profile-edit-form" class="auth-form" novalidate>
+
+        <form id="profile-edit-form" class="profile-form">
           <div class="profile-section-title">
-            <i data-lucide="pencil" style="width:14px;height:14px;"></i>
-            Datos personales
+            <i data-lucide="settings" style="width:14px;height:14px;"></i> Datos Personales
           </div>
           <div class="auth-field">
-            <label for="profile-display-name">Nombre para mostrar</label>
+            <label for="profile-display-name">Nombre completo</label>
             <input type="text" id="profile-display-name" placeholder="Ej: Marta Lopez">
           </div>
-          <div class="profile-section-title" style="margin-top: var(--space-4);">
-            <i data-lucide="lock" style="width:14px;height:14px;"></i>
-            Cambiar contrasena
+          
+          <div class="profile-divider"></div>
+          
+          <div class="profile-section-title">
+            <i data-lucide="folder" style="width:14px;height:14px;"></i> Almacenamiento
+          </div>
+          <p class="hint" style="margin-bottom:var(--space-2)">Carpeta donde se guardan tus cursos y alumnos:</p>
+          <div class="profile-folder-box">
+            <span id="profile-folder-path" class="profile-folder-text">C:\\Users\\...</span>
+            <button type="button" id="btn-profile-change-folder" class="btn-secondary btn-sm">Cambiar</button>
+          </div>
+
+          <div class="profile-divider"></div>
+
+          <div class="profile-section-title">
+            <i data-lucide="lock" style="width:14px;height:14px;"></i> Seguridad
           </div>
           <div class="auth-field">
-            <label for="profile-new-password">Nueva contrasena</label>
-            <input type="password" id="profile-new-password" placeholder="Dejar vacio para no cambiar" minlength="4">
+            <label for="profile-new-password">Nueva contraseña (deja en blanco para no cambiar)</label>
+            <div class="auth-input-wrap">
+              <input type="password" id="profile-new-password" placeholder="Mínimo 4 caracteres">
+              <button type="button" class="btn-toggle-password" data-target="profile-new-password" aria-label="Mostrar">
+                <i data-lucide="eye" style="width:18px;height:18px;"></i>
+              </button>
+            </div>
             <p class="auth-field-error" id="profile-password-error" role="alert"></p>
           </div>
           <div class="auth-field">
-            <label for="profile-confirm-password">Repetir nueva contrasena</label>
-            <input type="password" id="profile-confirm-password" placeholder="Repetir nueva contrasena" minlength="4">
+            <label for="profile-confirm-password">Confirmar nueva contraseña</label>
+            <div class="auth-input-wrap">
+              <input type="password" id="profile-confirm-password">
+              <button type="button" class="btn-toggle-password" data-target="profile-confirm-password" aria-label="Mostrar">
+                <i data-lucide="eye" style="width:18px;height:18px;"></i>
+              </button>
+            </div>
             <p class="auth-field-error" id="profile-confirm-password-error" role="alert"></p>
           </div>
-          <button type="submit" id="btn-save-profile" class="btn-primary" style="width:100%; margin-top: var(--space-3); justify-content: center;">
-            <i data-lucide="save" style="width:16px;height:16px;"></i> Guardar cambios
-          </button>
+          
           <p id="profile-save-error" class="auth-form-error" role="alert"></p>
-        </form>
-        <div class="profile-divider"></div>
-        <div class="profile-section-title">
-          <i data-lucide="folder" style="width:14px;height:14px;"></i>
-          Carpeta de trabajo
-        </div>
-        <div class="profile-folder-box">
-          <span id="profile-folder-path" class="profile-folder-text">Sin configurar</span>
-          <button id="btn-change-folder" class="btn-secondary btn-sm">
-            <i data-lucide="folder-search" style="width:14px;height:14px;"></i> Cambiar
+          
+          <button type="submit" id="btn-save-profile" class="btn-primary" style="width:100%; margin-top:var(--space-4);">
+            Guardar cambios
           </button>
-        </div>
+        </form>
+
         <div class="profile-divider"></div>
+        
         <button id="btn-logout" class="btn-danger" style="width:100%; justify-content: center;">
           <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesion
         </button>
@@ -432,130 +396,124 @@ const PROFILE_MODAL_TEMPLATE = `
   </div>
 `;
 
-function bindProfileListeners() {
-  $('btn-close-profile').addEventListener('click', closeProfileModal);
-  $('btn-change-folder').addEventListener('click', doChangeFolder);
-  $('btn-logout').addEventListener('click', doLogout);
-  $('profile-modal').addEventListener('click', function onBackdrop(e) {
-    if (e.target === $('profile-modal') || e.target.classList.contains('help-overlay')) {
-      closeProfileModal();
-    }
-  });
-  $('profile-edit-form').addEventListener('submit', (e) => { e.preventDefault(); saveProfile(); });
-  ['profile-new-password', 'profile-confirm-password'].forEach(id => {
-    $(id).addEventListener('input', () => {
-      import('./utils.js').then(m => {
-        m.clearFieldErrors(['profile-password-error', 'profile-confirm-password-error']);
-      });
-      $('profile-save-error').textContent = '';
-    });
-  });
-}
-
 export async function openProfileModal() {
   const root = $('profile-root');
   if (!root) return;
   root.innerHTML = PROFILE_MODAL_TEMPLATE;
-  if (window.lucide) lucide.createIcons({ nodes: [root] });
+  
+  // Inject icons synchronously
+  refreshIcons(root);
+
   bindProfileListeners();
 
   try {
     const cfg = await apiGet('/config');
     $('profile-folder-path').textContent = cfg.base_path || 'Sin configurar';
+    const authState = getAuthState();
+    $('profile-username').textContent = authState.username;
+    $('profile-display-name').value = authState.display_name || '';
   } catch (err) {
-    $('profile-folder-path').textContent = 'Error cargando config';
+    console.error('Error loading profile config:', err);
   }
-  try {
-    const profile = await apiGet('/auth/me');
-    $('profile-username').textContent = profile.username || getAuthState().username || '';
-    $('profile-display-name').value = profile.display_name || '';
-  } catch (err) {
-    $('profile-username').textContent = getAuthState().username || '';
-    $('profile-display-name').value = '';
-  }
-  $('profile-new-password').value = '';
-  $('profile-confirm-password').value = '';
-  clearFieldErrors(['profile-password-error', 'profile-confirm-password-error']);
-  $('profile-save-error').textContent = '';
-  const btn = $('btn-save-profile');
-  btn.classList.remove('btn-saved');
-  btn.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;"></i> Guardar cambios';
-  if (window.lucide) lucide.createIcons({ nodes: [btn] });
-  show($('profile-modal'));
+}
+
+function bindProfileListeners() {
+  $('btn-close-profile').addEventListener('click', closeProfileModal);
+  const btnChange = $('btn-profile-change-folder');
+  if (btnChange) btnChange.addEventListener('click', doChangeFolder);
+  $('btn-logout').addEventListener('click', doLogout);
+  
+  $('profile-modal').addEventListener('click', (e) => {
+    if (e.target === $('profile-modal') || e.target.classList.contains('help-overlay')) {
+      closeProfileModal();
+    }
+  });
+
+  $('profile-edit-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    saveProfile();
+  });
+
+  // Password toggles in profile
+  $('profile-modal').querySelectorAll('.btn-toggle-password').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const targetId = btn.dataset.target;
+      const input = $(targetId);
+      if (!input) return;
+      const isPassword = input.type === 'password';
+      input.type = isPassword ? 'text' : 'password';
+      import('./utils.js').then(m => {
+        btn.innerHTML = m.icon(isPassword ? 'eye-off' : 'eye', 18);
+      });
+    });
+  });
 }
 
 export function closeProfileModal() {
-  const modal = $('profile-modal');
-  if (modal) hide(modal);
   const root = $('profile-root');
   if (root) root.innerHTML = '';
 }
 
-export async function saveProfile() {
+async function saveProfile() {
   const displayName = $('profile-display-name').value.trim();
   const newPassword = $('profile-new-password').value;
   const confirmPassword = $('profile-confirm-password').value;
   const errorEl = $('profile-save-error');
+  
   errorEl.textContent = '';
   clearFieldErrors(['profile-password-error', 'profile-confirm-password-error']);
+  
   if (newPassword && newPassword.length < 4) {
-    showFieldError('profile-password-error', 'La contraseña debe tener al menos 4 caracteres.');
+    showFieldError('profile-password-error', 'Minimo 4 caracteres.');
     return;
   }
   if (newPassword && newPassword !== confirmPassword) {
-    showFieldError('profile-confirm-password-error', 'Las contraseñas no coinciden.');
+    showFieldError('profile-confirm-password-error', 'No coincide.');
     return;
   }
-  const payload = {};
-  if (displayName) payload.display_name = displayName;
+
+  const payload = { display_name: displayName };
   if (newPassword) payload.password = newPassword;
-  if (!payload.display_name && !payload.password) {
-    showToast('No hay cambios para guardar.', 'info');
-    return;
-  }
+
   try {
+    setLoading(true);
     const res = await apiPut('/auth/profile', payload);
-    if (res.display_name) {
-      $('sidebar-username').textContent = res.display_name;
-    }
-    const btn = $('btn-save-profile');
-    btn.classList.add('btn-saved');
-    btn.innerHTML = '<i data-lucide="check" style="width:16px;height:16px;"></i> Guardado';
-    if (window.lucide) lucide.createIcons({ nodes: [btn] });
-    $('profile-new-password').value = '';
-    $('profile-confirm-password').value = '';
-    showToast('Perfil actualizado correctamente.', 'success');
-    setTimeout(() => {
-      btn.classList.remove('btn-saved');
-      btn.innerHTML = '<i data-lucide="save" style="width:16px;height:16px;"></i> Guardar cambios';
-      if (window.lucide) lucide.createIcons({ nodes: [btn] });
-    }, 2000);
+    setLoading(false);
+    
+    setAuthState({ ...getAuthState(), display_name: res.display_name });
+    saveAuthState();
+    
+    const sidebarUser = $('sidebar-username');
+    if (sidebarUser) sidebarUser.textContent = res.display_name || getAuthState().username;
+    
+    showToast('Perfil actualizado', 'success');
+    closeProfileModal();
   } catch (err) {
-    errorEl.textContent = (err.detail || err.message) || 'No se pudo actualizar el perfil.';
+    setLoading(false);
+    errorEl.textContent = err.message || 'Error al guardar';
   }
 }
 
 export async function doChangeFolder() {
   try {
     setLoading(true);
-    const data = await import('./api.js').then(m => m.apiGet('/pick-folder'));
+    const data = await apiGet('/pick-folder');
     setLoading(false);
-    if (data.error) {
-      showToast('No se pudo abrir el selector. Intenta de nuevo.', 'error');
-      return;
-    }
-    if (data.cancelled || !data.path) {
-      return;
-    }
+    if (data.error) { showToast('No se pudo abrir el selector.', 'error'); return; }
+    if (data.cancelled || !data.path) return;
+    
     await apiPost('/config', { base_path: data.path });
     $('profile-folder-path').textContent = data.path;
-    showToast('Carpeta actualizada.', 'success');
-    const coursesGrid = $('courses-grid');
-    if (coursesGrid && !coursesGrid.classList.contains('hidden')) {
-      import('./app.js').then(mod => mod.loadCoursesGrid());
-    }
+    showToast('Carpeta actualizada', 'success');
+    
+    // Refresh sidebar and grid if needed
+    import('./app.js').then(m => {
+      m.preloadSystemStatus();
+      m.loadCoursesGrid();
+      m.renderSidebarCourses();
+    });
   } catch (err) {
     setLoading(false);
-    showToast('No se pudo cambiar la carpeta. Intenta de nuevo.', 'error');
+    showToast('Error al cambiar carpeta', 'error');
   }
 }
