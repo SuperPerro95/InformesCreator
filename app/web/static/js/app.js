@@ -340,7 +340,11 @@ export async function preloadSystemStatus() {
     const st = getSystemStatus();
     st.basePath = cfg.base_path || '';
     if ($('base-path')) $('base-path').value = st.basePath;
-    updateFolderIndicator(st.basePath);
+
+    // Use explicit folder_exists from backend
+    st.folderPath = st.basePath;
+    st.folderOk = !!cfg.folder_exists;
+    setSystemStatus(st);
   } catch (err) {
     console.error('Error loading config:', err);
   }
@@ -366,6 +370,7 @@ export async function preloadSystemStatus() {
 }
 
 function updateFolderIndicator(path) {
+  // This is now mostly used for manual input in onboarding
   const st = getSystemStatus();
   st.folderPath = path || '';
   st.folderOk = !!(path && path.trim());
@@ -751,6 +756,23 @@ async function initFromHashCourse(course, target, substep) {
 
 async function handleHashChange() {
   const hash = window.location.hash || '#/';
+  const status = getSystemStatus();
+  const auth = getAuthState();
+
+  // Guard for protected routes
+  const isProtectedRoute = hash.startsWith('#/course') || hash === '#/courses' || hash.startsWith('#/questionnaire') || hash === '#/onboarding';
+  
+  if (isProtectedRoute && !auth.loggedIn) {
+    navigateTo('#/login');
+    return;
+  }
+
+  // If logged in but misconfigured, force onboarding (unless already there)
+  if (isProtectedRoute && auth.loggedIn && hash !== '#/onboarding' && (!status.ollamaRunning || !status.folderOk)) {
+    navigateTo('#/onboarding');
+    return;
+  }
+
   if (hash === '#/login') {
     import('./auth.js').then(m => m.showLoginScreen());
     hideHero();
@@ -1130,17 +1152,22 @@ async function init() {
   await initAuth();
   const authState = getAuthState();
 
+  if (authState.loggedIn) {
+    await preloadSystemStatus();
+  }
+
   // If no hash, decide what to show based on auth state
   if (!window.location.hash || window.location.hash === '#/' || window.location.hash === '#') {
     if (authState.loggedIn) {
-      navigateTo('#/courses');
+      const status = getSystemStatus();
+      if (!status.ollamaRunning || !status.folderOk) {
+        navigateTo('#/onboarding');
+      } else {
+        navigateTo('#/courses');
+      }
     } else {
       showHero();
     }
-  }
-
-  if (authState.loggedIn) {
-    preloadSystemStatus();
   }
 
   $('btn-back-to-menu').addEventListener('click', openCoursesMenu);

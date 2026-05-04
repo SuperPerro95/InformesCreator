@@ -7,7 +7,7 @@ import uuid
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, HTTPException, Response, Cookie, Request
+from fastapi import APIRouter, HTTPException, Response, Cookie, Request, Depends
 from pydantic import BaseModel, ConfigDict
 
 # Agregar raíz del proyecto al path para importar módulos existentes
@@ -213,6 +213,19 @@ class UpdateProfileRequest(BaseModel):
     password: Optional[str] = None
 
 
+# ============== Auth Dependency ==============
+
+def get_current_user(request: Request) -> str:
+    """Dependency to get the current logged-in user from the session cookie."""
+    users = _load_users()
+    session_user = request.cookies.get("informes_session")
+    
+    if not session_user or session_user not in users:
+        raise HTTPException(status_code=401, detail="No estás autenticado.")
+    
+    return session_user
+
+
 # ============== Endpoints ==============
 
 @router.get("/health")
@@ -328,7 +341,7 @@ def ollama_models():
 
 
 @router.get("/courses")
-def list_courses():
+def list_courses(current_user: str = Depends(get_current_user)):
     try:
         course_names = discover_courses(config.base_path)
         courses = []
@@ -354,7 +367,7 @@ def list_courses():
 
 
 @router.get("/courses/{course}/students")
-def list_students(course: str):
+def list_students(course: str, current_user: str = Depends(get_current_user)):
     course_path = config.base_path / course
     if not course_path.exists():
         raise HTTPException(status_code=404, detail="Curso no encontrado")
@@ -376,19 +389,19 @@ def list_students(course: str):
 
 
 @router.get("/courses/{course}/contents")
-def get_contents(course: str):
+def get_contents(course: str, current_user: str = Depends(get_current_user)):
     contents = get_course_contents(course)
     return {"contents": contents if contents else ""}
 
 
 @router.post("/courses/{course}/contents")
-def post_contents(course: str, req: CourseContentsRequest):
+def post_contents(course: str, req: CourseContentsRequest, current_user: str = Depends(get_current_user)):
     save_course_contents(course, req.contents)
     return {"ok": True}
 
 
 @router.get("/courses/{course}/session")
-def get_session(course: str):
+def get_session(course: str, current_user: str = Depends(get_current_user)):
     session = get_course_session(course)
     reports = list_generated_reports(course, config.output_dir)
     qid = get_course_questionnaire(course)
@@ -403,19 +416,19 @@ def get_session(course: str):
 
 
 @router.post("/courses/{course}/session")
-def post_session(course: str, req: Dict):
+def post_session(course: str, req: Dict, current_user: str = Depends(get_current_user)):
     save_course_session(course, req)
     return {"ok": True}
 
 
 @router.get("/courses/{course}/reports")
-def get_course_reports(course: str):
+def get_course_reports(course: str, current_user: str = Depends(get_current_user)):
     reports = list_generated_reports(course, config.output_dir)
     return {"reports": reports}
 
 
 @router.get("/reports/{course}/{filename}")
-def get_report_file(course: str, filename: str):
+def get_report_file(course: str, filename: str, current_user: str = Depends(get_current_user)):
     report_path = config.output_dir / course / filename
     if not report_path.exists():
         raise HTTPException(status_code=404, detail="Informe no encontrado")
@@ -426,7 +439,7 @@ def get_report_file(course: str, filename: str):
 
 
 @router.get("/students/{course}/{filename}")
-def get_student(course: str, filename: str):
+def get_student(course: str, filename: str, current_user: str = Depends(get_current_user)):
     course_path = config.base_path / course / "Alumnos"
     filepath = course_path / filename
     if not filepath.exists():
@@ -470,7 +483,7 @@ def list_variants():
 
 
 @router.post("/reports/generate", response_model=ReportResponse)
-def generate_report_endpoint(req: ReportGenerateRequest):
+def generate_report_endpoint(req: ReportGenerateRequest, current_user: str = Depends(get_current_user)):
     # Parsear alumno
     course_path = config.base_path / req.course / "Alumnos"
     filepath = course_path / req.filename
@@ -553,7 +566,7 @@ def download_report(content: str):
 
 
 @router.post("/courses/create")
-def create_course_endpoint(req: CreateCourseRequest):
+def create_course_endpoint(req: CreateCourseRequest, current_user: str = Depends(get_current_user)):
     """Crea un nuevo curso con sus alumnos."""
     try:
         create_course(config.base_path, req.course_name)
@@ -564,7 +577,7 @@ def create_course_endpoint(req: CreateCourseRequest):
 
 
 @router.get("/students/{course}/{filename}/observations")
-def get_student_observations(course: str, filename: str):
+def get_student_observations(course: str, filename: str, current_user: str = Depends(get_current_user)):
     """Devuelve las observaciones raw de un alumno."""
     course_path = config.base_path / course / "Alumnos"
     filepath = course_path / filename
@@ -587,7 +600,7 @@ def get_student_observations(course: str, filename: str):
 
 
 @router.post("/students/{course}/{filename}/observations")
-def post_student_observations(course: str, filename: str, req: SaveObservationsRequest):
+def post_student_observations(course: str, filename: str, req: SaveObservationsRequest, current_user: str = Depends(get_current_user)):
     """Guarda observaciones de un alumno y recalcula asistencia."""
     course_path = config.base_path / course
     filepath = course_path / "Alumnos" / filename
@@ -605,7 +618,7 @@ def post_student_observations(course: str, filename: str, req: SaveObservationsR
 
 
 @router.post("/students/{course}/{filename}/clear")
-def clear_student(course: str, filename: str):
+def clear_student(course: str, filename: str, current_user: str = Depends(get_current_user)):
     """Borra respuestas, progreso e informe generado de un alumno."""
     # Obtener nombre completo del alumno
     course_path = config.base_path / course
@@ -649,30 +662,31 @@ class SetStudentQuestionnaireRequest(BaseModel):
 
 
 @router.get("/courses/{course}/students/{filename}/questionnaire")
-def get_student_questionnaire_endpoint(course: str, filename: str):
+def get_student_questionnaire_endpoint(course: str, filename: str, current_user: str = Depends(get_current_user)):
     qid = get_student_questionnaire(course, filename)
     return {"questionnaire_id": qid or ""}
 
 
 @router.post("/courses/{course}/students/{filename}/questionnaire")
-def set_student_questionnaire_endpoint(course: str, filename: str, req: SetStudentQuestionnaireRequest):
+def set_student_questionnaire_endpoint(course: str, filename: str, req: SetStudentQuestionnaireRequest, current_user: str = Depends(get_current_user)):
     set_student_questionnaire(course, filename, req.questionnaire_id or "")
     return {"ok": True}
 
 
 @router.get("/config")
-def get_config():
+def get_config(current_user: str = Depends(get_current_user)):
     return {
         "base_path": str(config.base_path),
         "ollama_url": config.ollama_url,
         "model": config.model,
         "output_dir": str(config.output_dir),
         "default_variant": config.default_variant,
+        "folder_exists": config.base_path.exists() and config.base_path.is_dir(),
     }
 
 
 @router.post("/config")
-def update_config(updates: Dict[str, str]):
+def update_config(updates: Dict[str, str], current_user: str = Depends(get_current_user)):
     # Si se envia base_path sin output_dir, auto-setear output_dir dentro de base_path
     if "base_path" in updates and "output_dir" not in updates:
         from pathlib import Path
@@ -689,7 +703,7 @@ def update_config(updates: Dict[str, str]):
 # ============== Questionnaires ==============
 
 @router.get("/questionnaires")
-def list_questionnaires():
+def list_questionnaires(current_user: str = Depends(get_current_user)):
     """Lista todos los cuestionarios disponibles."""
     data = load_questionnaires()
     questionnaires = data.get("questionnaires", {})
@@ -707,7 +721,7 @@ def list_questionnaires():
 
 
 @router.get("/questionnaires/{qid}")
-def get_questionnaire_endpoint(qid: str):
+def get_questionnaire_endpoint(qid: str, current_user: str = Depends(get_current_user)):
     """Devuelve un cuestionario completo por ID."""
     q = get_questionnaire(qid)
     if not q:
@@ -733,7 +747,7 @@ def get_questionnaire_endpoint(qid: str):
 
 
 @router.post("/questionnaires")
-def create_questionnaire_endpoint(req: CreateQuestionnaireRequest):
+def create_questionnaire_endpoint(req: CreateQuestionnaireRequest, current_user: str = Depends(get_current_user)):
     """Crea un nuevo cuestionario."""
     questions = [q.model_dump() for q in req.questions]
     q = create_questionnaire(req.name, req.description, questions)
@@ -741,7 +755,7 @@ def create_questionnaire_endpoint(req: CreateQuestionnaireRequest):
 
 
 @router.put("/questionnaires/{qid}")
-def update_questionnaire_endpoint(qid: str, req: UpdateQuestionnaireRequest):
+def update_questionnaire_endpoint(qid: str, req: UpdateQuestionnaireRequest, current_user: str = Depends(get_current_user)):
     """Actualiza un cuestionario existente."""
     updates = {}
     if req.name is not None:
@@ -758,7 +772,7 @@ def update_questionnaire_endpoint(qid: str, req: UpdateQuestionnaireRequest):
 
 
 @router.delete("/questionnaires/{qid}")
-def delete_questionnaire_endpoint(qid: str):
+def delete_questionnaire_endpoint(qid: str, current_user: str = Depends(get_current_user)):
     """Elimina un cuestionario (no se puede eliminar el default)."""
     ok = delete_questionnaire(qid)
     if not ok:
@@ -767,7 +781,7 @@ def delete_questionnaire_endpoint(qid: str):
 
 
 @router.post("/questionnaires/{qid}/duplicate")
-def duplicate_questionnaire_endpoint(qid: str, req: DuplicateQuestionnaireRequest):
+def duplicate_questionnaire_endpoint(qid: str, req: DuplicateQuestionnaireRequest, current_user: str = Depends(get_current_user)):
     """Duplica un cuestionario con nuevo nombre."""
     try:
         q = duplicate_questionnaire(qid, req.new_name)
@@ -777,13 +791,13 @@ def duplicate_questionnaire_endpoint(qid: str, req: DuplicateQuestionnaireReques
 
 
 @router.get("/questionnaires/{qid}/versions")
-def list_questionnaire_versions(qid: str):
+def list_questionnaire_versions(qid: str, current_user: str = Depends(get_current_user)):
     """Devuelve el historial de versiones de un cuestionario."""
     return {"versions": get_questionnaire_versions(qid)}
 
 
 @router.post("/questionnaires/{qid}/restore/{version}")
-def restore_questionnaire_version_endpoint(qid: str, version: int):
+def restore_questionnaire_version_endpoint(qid: str, version: int, current_user: str = Depends(get_current_user)):
     """Restaura un cuestionario a una versión anterior."""
     try:
         q = restore_questionnaire_version(qid, version)
@@ -793,21 +807,21 @@ def restore_questionnaire_version_endpoint(qid: str, version: int):
 
 
 @router.get("/courses/{course}/questionnaire")
-def get_course_questionnaire_endpoint(course: str):
+def get_course_questionnaire_endpoint(course: str, current_user: str = Depends(get_current_user)):
     """Devuelve el ID del cuestionario asignado a un curso."""
     qid = get_course_questionnaire(course)
     return {"questionnaire_id": qid}
 
 
 @router.post("/courses/{course}/questionnaire")
-def assign_course_questionnaire_endpoint(course: str, req: AssignQuestionnaireRequest):
+def assign_course_questionnaire_endpoint(course: str, req: AssignQuestionnaireRequest, current_user: str = Depends(get_current_user)):
     """Asigna un cuestionario a un curso."""
     assign_questionnaire_to_course(course, req.questionnaire_id)
     return {"ok": True}
 
 
 @router.get("/pick-folder")
-def pick_folder():
+def pick_folder(current_user: str = Depends(get_current_user)):
     """Abre un dialogo nativo de seleccion de carpeta y devuelve la ruta absoluta."""
     # 1. Tkinter (funciona en Windows/macOS/Linux con display)
     try:

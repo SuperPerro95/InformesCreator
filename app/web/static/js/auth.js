@@ -222,24 +222,23 @@ export function saveAuthState() {
 }
 
 export function navigateTo(hash) {
-  import('./state.js').then(mod => {
-    if (mod.getIsNavigating()) return;
-    mod.setIsNavigating(true);
-  });
+  // Use a simple global flag to prevent navigation loops/races
+  if (window._isNavigating) return;
+  window._isNavigating = true;
+  
   window.location.hash = hash;
+  
+  // Clear flag in next tick
   setTimeout(() => {
-    import('./state.js').then(mod => mod.setIsNavigating(false));
-  }, 0);
+    window._isNavigating = false;
+  }, 50);
 }
 
 export async function initAuth() {
   loadAuthState();
   const authState = getAuthState();
-  if (authState.loggedIn) {
-    const headerUsername = $('sidebar-username');
-    if (headerUsername) headerUsername.textContent = authState.username;
-    return;
-  }
+
+  // Even if local state says loggedIn, verify with server to ensure user still exists
   try {
     const profile = await apiGet('/auth/me');
     if (profile.username) {
@@ -247,8 +246,15 @@ export async function initAuth() {
       saveAuthState();
       const headerUsername = $('sidebar-username');
       if (headerUsername) headerUsername.textContent = profile.display_name || profile.username;
+    } else {
+      // Server says no active session or user deleted
+      setAuthState({ loggedIn: false, username: '' });
+      saveAuthState();
     }
   } catch (err) {
+    // If 404 (no users at all) or 401 (unauthorized), clear local state
+    setAuthState({ loggedIn: false, username: '' });
+    saveAuthState();
   }
 }
 
@@ -278,11 +284,18 @@ export async function doLogin() {
     saveAuthState();
     $('sidebar-username').textContent = res.display_name || res.username;
     clearAuthScreen();
-    navigateTo('#/');
-    import('./app.js').then(mod => {
-      mod.showHero();
-      mod.preloadSystemStatus();
-    });
+
+    // Redirect to app
+    const appMod = await import('./app.js');
+    await appMod.preloadSystemStatus();
+    const { getSystemStatus } = await import('./state.js');
+    const status = getSystemStatus();
+
+    if (!status.ollamaRunning || !status.folderOk) {
+      navigateTo('#/onboarding');
+    } else {
+      navigateTo('#/courses');
+    }
   } catch (err) {
     if (err.status === 401) {
       formErrorEl.textContent = 'Usuario o contraseña incorrectos.';
@@ -325,8 +338,14 @@ export async function doRegister() {
   setLoading(true);
   try {
     await apiPost('/auth/register', { username, password, display_name: displayName || undefined });
-    showToast('Perfil creado exitosamente. Por favor, iniciá sesión.', 'success');
-    navigateTo('#/login');
+
+    // Auto-login after registration
+    const loginUser = $('login-username');
+    const loginPass = $('login-password');
+    if (loginUser) loginUser.value = username;
+    if (loginPass) loginPass.value = password;
+
+    await doLogin();
   } catch (err) {
     formErrorEl.textContent = (err.detail || err.message) || 'No se pudo crear el perfil.';
   } finally {
@@ -466,7 +485,8 @@ export async function openProfileModal() {
 }
 
 export function closeProfileModal() {
-  hide($('profile-modal'));
+  const modal = $('profile-modal');
+  if (modal) hide(modal);
   const root = $('profile-root');
   if (root) root.innerHTML = '';
 }
