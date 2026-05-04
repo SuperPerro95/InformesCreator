@@ -167,15 +167,11 @@ export function showRegisterScreen() {
 }
 
 export function clearAuthScreen() {
-  const stage = $('landing-stage');
-  if (stage) stage.classList.add('hidden');
   const root = $('auth-root');
   if (root) setTimeout(() => { root.innerHTML = ''; }, 400);
 }
 
 export function hideAuthScreen() {
-  const stage = $('landing-stage');
-  if (stage) stage.classList.add('hidden');
   const root = $('auth-root');
   if (root) setTimeout(() => { root.classList.add('hidden'); }, 400);
 }

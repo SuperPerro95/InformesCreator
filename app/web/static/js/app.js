@@ -1,16 +1,32 @@
 import { apiGet, apiPut, apiPost } from './api.js';
-import { 
-  $, show, hide, showToast, setLoading, icon, refreshIcons, showHelp, showConfirm, clearFieldErrors, 
-  setSelectedVariant, setAllStudents, setCurrentStudentIndex, setTotalQuestions, 
-  setCurrentQuestionnaire, setCurrentQuestions, getAuthState, setAuthState, 
-  getSystemStatus, setSystemStatus, getCurrentHelpScreen, 
-  loadCourseContents, updateSaveContentsButton, saveCourseContents,
-  preloadSystemStatus
+import {
+  $, show, hide, showToast, setLoading, icon, refreshIcons, showHelp, showConfirm, clearFieldErrors,
+  hideMainContentScreens
 } from './utils.js';
+import {
+  setSelectedVariant, setAllStudents, setCurrentStudentIndex, setTotalQuestions,
+  setCurrentQuestionnaire, setCurrentQuestions, getAuthState, setAuthState,
+  getSystemStatus, setSystemStatus, getCurrentHelpScreen
+} from './state.js';
 import { renderSidebarCourses, navigateToCourse, closeMobileSidebar } from './sidebar.js';
 
 // Configuration
 const ALL_QUESTIONS = []; // Initialized as empty
+
+export async function preloadSystemStatus() {
+  const status = { ollamaRunning: false, folderOk: false, basePath: '' };
+  try {
+    const ollama = await apiGet('/ollama/status');
+    status.ollamaRunning = ollama.running;
+  } catch (_) {}
+  try {
+    const cfg = await apiGet('/config');
+    status.basePath = cfg.base_path || '';
+    status.folderOk = !!cfg.folder_exists;
+  } catch (_) {}
+  setSystemStatus(status);
+  return status;
+}
 
 export function parseStudentNames(raw) {
   return raw.split('\n')
@@ -210,7 +226,13 @@ export function handleHashChange() {
     return;
   }
 
-  hide($('onboarding-overlay'));
+  if (authState.loggedIn) {
+    const layout = $('layout-body');
+    if (layout) layout.classList.remove('hidden');
+  }
+
+  const ov = $('onboarding-overlay');
+  if (ov) hide(ov);
 
   if (hash === '#/login') {
     import('./auth.js').then(m => m.showLoginScreen());
@@ -220,13 +242,13 @@ export function handleHashChange() {
     showHero();
   } else if (hash === '#/courses') {
     hideHero();
-    show($('dashboard-view'));
-    hide($('course-view'));
-    hide($('questionnaires-view'));
+    hideMainContentScreens();
+    show($('courses-grid'));
     loadCoursesGrid();
     renderSidebarCourses();
   } else if (hash.startsWith('#/course/')) {
     hideHero();
+    hideMainContentScreens();
     const courseName = decodeURIComponent(hash.replace('#/course/', '')).replace(/-/g, ' ');
     import('./dashboard.js').then(m => m.navigateToCourse(courseName));
   } else if (hash === '#/onboarding') {
@@ -234,13 +256,25 @@ export function handleHashChange() {
     showOnboarding();
   } else if (hash === '#/questionnaires') {
     hideHero();
+    hideMainContentScreens();
     import('./questionnaires.js').then(m => m.showQuestionnairesScreen());
   } else if (hash === '' || hash === '#/') {
-    showHero();
-    import('./auth.js').then(m => m.clearAuthScreen());
+    if (authState.loggedIn) {
+      navigateTo('#/courses');
+    } else {
+      showHero();
+      import('./auth.js').then(m => m.showLoginScreen());
+    }
   }
 
   updateSidebarNavActive();
+  
+  // Re-run icon generation after view change
+  if (window.lucide) {
+    setTimeout(() => lucide.createIcons(), 50);
+  } else {
+    refreshIcons(document.body);
+  }
 }
 
 function updateSidebarNavActive() {
@@ -280,7 +314,14 @@ function exportToWindow() {
 
 async function init() {
   exportToWindow();
-  refreshIcons(document.body);
+  
+  // Initial icon run
+  if (window.lucide) {
+    lucide.createIcons();
+  } else {
+    refreshIcons(document.body);
+  }
+
   window.addEventListener('hashchange', handleHashChange);
 
   const { initAuth } = await import('./auth.js');
@@ -288,6 +329,9 @@ async function init() {
   
   const authState = getAuthState();
   if (authState.loggedIn) {
+    const layout = $('layout-body');
+    if (layout) layout.classList.remove('hidden');
+    
     const status = await preloadSystemStatus();
     if (!status.ollamaRunning || !status.folderOk) {
       if (window.location.hash !== '#/onboarding') navigateTo('#/onboarding');
@@ -301,7 +345,8 @@ async function init() {
     const userMenu = $('sidebar-user-menu-expanded');
     if (userMenu && !userMenu.classList.contains('hidden') && !e.target.closest('.sidebar-footer')) {
       userMenu.classList.add('hidden');
-      $('btn-sidebar-user-menu').innerHTML = icon('chevron-up', 14);
+      const btnMenu = $('btn-sidebar-user-menu');
+      if (btnMenu) btnMenu.innerHTML = icon('chevron-up', 14);
     }
   });
 }
