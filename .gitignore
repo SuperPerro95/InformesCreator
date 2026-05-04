@@ -2,12 +2,23 @@
 .venv/
 venv/
 env/
+lib/
+bin/
+Include/
+Scripts/
 
-# Datos de usuario (nunca se suben)
-user_data/
-Informes/
+# Datos de usuario y archivos generados
+/user_data/
+/Informes/
+/tests/results/
+*.log
 
-# Cache Python
+# Entorno y Secretos (CRÍTICO)
+.env
+.env.*
+*.env
+
+# Cache Python y temporales
 __pycache__/
 *.py[cod]
 *$py.class
@@ -15,39 +26,41 @@ __pycache__/
 .Python
 .pytest_cache/
 .mypy_cache/
+.coverage
+.coverage.*
+htmlcov/
+nosetests.xml
+coverage.xml
+*.cover
+*.tmp
+*.bak
+*Zone.Identifier
 
-# Distribuciones
+# Distribuciones y Build artifacts
 InformesCreator_Windows.zip
 InformesCreator_update_*.zip
+build/
+dist/
+*.egg-info/
 
 # IDEs y OS
 .DS_Store
 Thumbs.db
 .vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
 *.swo
+.ropeproject/
 
-# Build artifacts
-build/
-dist/
-*.egg-info/
-
-# Archivos temporales
-*.tmp
-*.bak
-*.log
-
-# Archivos del entorno de desarrollo
+# Herramientas de IA y Agentes
 .claude/
 .playwright-mcp/
-.coverage
-*Zone.Identifier
-# Added by code-review-graph
 .code-review-graph/
 .worktrees/
-
-# Archivos de configuración de agentes/IDEs
 .cursorrules
 .windsurfrules
 AGENTS.md
@@ -61,7 +74,12 @@ PRODUCT.md
 .cursor/
 .kiro/
 
-# Scripts de build y empaquetado desktop
+# Recursos de diseño temporales
+landing-annotated.png
+landing-fixed.png
+screenshot-*.png
+
+# Scripts de build y empaquetado desktop (específicos del proyecto)
 build_dist.py
 build_update.py
 claude-ollama.ps1
@@ -74,5 +92,5 @@ app/requirements-dev.txt
 app/version.txt
 app/main.py
 
-# Tests
-tests/
+# Directorio de tests si se desea excluir del repo principal
+# tests/
