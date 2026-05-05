@@ -14,17 +14,21 @@ import { renderSidebarCourses, navigateToCourse, closeMobileSidebar } from './si
 const ALL_QUESTIONS = []; // Initialized as empty
 
 export async function preloadSystemStatus() {
-  const status = { ollamaRunning: false, folderOk: false, basePath: '' };
+  const status = { running: false, folderOk: false, basePath: '' };
   try {
     const ollama = await apiGet('/ollama/status');
-    status.ollamaRunning = ollama.running;
-  } catch (_) {}
+    status.running = ollama.running;
+  } catch (_) { }
   try {
     const cfg = await apiGet('/config');
     status.basePath = cfg.base_path || '';
     status.folderOk = !!cfg.folder_exists;
-  } catch (_) {}
+  } catch (_) { }
   setSystemStatus(status);
+
+  // Update UI components that depend on status
+  import('./sidebar.js').then(m => m.updateSidebarStatus(status));
+
   return status;
 }
 
@@ -57,7 +61,7 @@ export async function loadCoursesGrid() {
       const completed = c.completed_count || 0;
       const pct = count > 0 ? Math.round((completed / count) * 100) : 0;
       return `
-        <div class="selection-card" onclick="navigateToCourse('${name.replace(/'/g, "\\'")}')">
+        <a href="#/course/${name.replace(/\s+/g, '-')}" class="selection-card">
           <div class="flex justify-between items-center">
             <h4>${name}</h4>
             <span class="badge ${pct === 100 ? 'badge-success' : 'badge-subtle'}">${count} alumnos</span>
@@ -68,7 +72,7 @@ export async function loadCoursesGrid() {
           <p class="mt-2" style="font-size:0.8125rem; color:var(--text-muted)">
             ${completed} de ${count} informes listos (${pct}%)
           </p>
-        </div>
+        </a>
       `;
     }).join('');
     refreshIcons(grid);
@@ -150,19 +154,20 @@ const ONBOARDING_TEMPLATE = `
 `;
 
 export function showOnboarding() {
+  const root = $('onboarding-root');
+  if (!root) return;
+  root.innerHTML = ONBOARDING_TEMPLATE;
   const overlay = $('onboarding-overlay');
-  if (!overlay) return;
-  overlay.innerHTML = ONBOARDING_TEMPLATE;
-  overlay.classList.remove('hidden');
-  refreshIcons(overlay);
+  if (overlay) overlay.classList.remove('hidden');
+  refreshIcons(root);
   bindOnboardingListeners();
   checkOnboardingStatus();
 }
 
 async function checkOnboardingStatus() {
   const status = await preloadSystemStatus();
-  
-  if (status.ollamaRunning) {
+
+  if (status.running) {
     hide($('ollama-status-msg')); hide($('ollama-fail-panel')); show($('ollama-ok-panel'));
   } else {
     hide($('ollama-status-msg')); hide($('ollama-ok-panel')); show($('ollama-fail-panel'));
@@ -176,25 +181,39 @@ async function checkOnboardingStatus() {
   }
 
   const btnFinish = $('btn-finish-onboarding');
-  if (btnFinish) btnFinish.disabled = !(status.ollamaRunning && status.folderOk);
+  if (btnFinish) btnFinish.disabled = !(status.running && status.folderOk);
 }
 
 function bindOnboardingListeners() {
   $('btn-retry-ollama')?.addEventListener('click', checkOnboardingStatus);
-  $('btn-select-base-folder')?.addEventListener('click', handleOnboardingSelectFolder);
-  $('btn-change-folder-onboarding')?.addEventListener('click', handleOnboardingSelectFolder);
+  $('btn-select-base-folder')?.addEventListener('click', handleSelectFolder);
+  $('btn-change-folder-onboarding')?.addEventListener('click', handleSelectFolder);
   $('btn-skip-onboarding')?.addEventListener('click', () => { hide($('onboarding-overlay')); navigateTo('#/courses'); });
   $('btn-finish-onboarding')?.addEventListener('click', () => { hide($('onboarding-overlay')); navigateTo('#/courses'); });
 }
 
-async function handleOnboardingSelectFolder() {
+export async function handleSelectFolder() {
   try {
     setLoading(true);
     const data = await apiGet('/pick-folder');
     setLoading(false);
-    if (data.error || data.cancelled || !data.path) return;
+    if (data.error) {
+      showToast(data.error, 'error');
+      return;
+    }
+    if (data.cancelled || !data.path) return;
     await apiPost('/config', { base_path: data.path });
-    checkOnboardingStatus();
+
+    // Refresh status everywhere
+    const status = await preloadSystemStatus();
+
+    // If we are in onboarding, update it
+    const ov = $('onboarding-overlay');
+    if (ov && !ov.classList.contains('hidden')) {
+      checkOnboardingStatus();
+    }
+
+    showToast('Carpeta configurada correctamente', 'success');
   } catch (err) {
     setLoading(false);
     showToast('Error al seleccionar carpeta', 'error');
@@ -243,21 +262,24 @@ export function handleHashChange() {
   } else if (hash === '#/courses') {
     hideHero();
     hideMainContentScreens();
+    show($('main-content'));
     show($('courses-grid'));
+    hide($('course-view'));
     loadCoursesGrid();
     renderSidebarCourses();
   } else if (hash.startsWith('#/course/')) {
     hideHero();
     hideMainContentScreens();
+    show($('main-content'));
     const courseName = decodeURIComponent(hash.replace('#/course/', '')).replace(/-/g, ' ');
-    import('./dashboard.js').then(m => m.navigateToCourse(courseName));
+    import('./dashboard.js').then(m => m.enterCourse(courseName));
   } else if (hash === '#/onboarding') {
     hideHero();
     showOnboarding();
   } else if (hash === '#/questionnaires') {
     hideHero();
     hideMainContentScreens();
-    import('./questionnaires.js').then(m => m.showQuestionnairesScreen());
+    import('./questionnaire-editor.js').then(m => m.showQuestionnairesScreen());
   } else if (hash === '' || hash === '#/') {
     if (authState.loggedIn) {
       navigateTo('#/courses');
@@ -268,7 +290,7 @@ export function handleHashChange() {
   }
 
   updateSidebarNavActive();
-  
+
   // Re-run icon generation after view change
   if (window.lucide) {
     setTimeout(() => lucide.createIcons(), 50);
@@ -281,10 +303,10 @@ function updateSidebarNavActive() {
   const hash = window.location.hash;
   const linkCourses = $('sidebar-link-courses');
   const linkQs = $('sidebar-link-questionnaires');
-  
+
   linkCourses?.classList.remove('active');
   linkQs?.classList.remove('active');
-  
+
   if (hash === '#/courses' || hash.startsWith('#/course/')) linkCourses?.classList.add('active');
   if (hash === '#/questionnaires') linkQs?.classList.add('active');
 }
@@ -299,7 +321,7 @@ function exportToWindow() {
     loadCoursesGrid, handleHashChange, preloadSystemStatus, parseStudentNames,
     navigateToCourse, closeMobileSidebar
   });
-  
+
   // Also export dashboard actions if needed
   import('./dashboard.js').then(m => {
     Object.assign(window, {
@@ -314,7 +336,7 @@ function exportToWindow() {
 
 async function init() {
   exportToWindow();
-  
+
   // Initial icon run
   if (window.lucide) {
     lucide.createIcons();
@@ -326,7 +348,10 @@ async function init() {
 
   const { initAuth } = await import('./auth.js');
   await initAuth();
-  
+
+  const { initSidebar } = await import('./sidebar.js');
+  initSidebar();
+
   const authState = getAuthState();
   if (authState.loggedIn) {
     const layout = $('layout-body');
@@ -335,8 +360,7 @@ async function init() {
     wireSidebarFooter();
 
     const status = await preloadSystemStatus();
-    updateSidebarStatus(status);
-    if (!status.ollamaRunning || !status.folderOk) {
+    if (!status.running || !status.folderOk) {
       if (window.location.hash !== '#/onboarding') navigateTo('#/onboarding');
     }
   }

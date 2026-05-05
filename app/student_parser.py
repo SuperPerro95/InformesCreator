@@ -118,42 +118,38 @@ def _extract_int(content: str, pattern: str) -> int:
 
 
 def _parse_observations_table(content: str) -> List[Observation]:
-    """Extrae las observaciones de la tabla markdown."""
+    """Extrae las observaciones de la tabla markdown de forma robusta."""
     observaciones = []
 
-    # Encontrar la sección de observaciones
-    obs_start = content.find("## 📝 Observaciones")
-    if obs_start == -1:
-        return observaciones
+    # Encontrar la sección de observaciones usando expresiones regulares flexibles
+    obs_match = re.search(r"##\s*📝\s*Observaciones(.*?)(?:##|###\s*Leyenda)", content, re.DOTALL | re.IGNORECASE)
+    if not obs_match:
+        # Intento alternativo si no está la leyenda
+        obs_match = re.search(r"##\s*📝\s*Observaciones(.*)", content, re.DOTALL | re.IGNORECASE)
+        if not obs_match:
+            return observaciones
 
-    leyenda_start = content.find("### Leyenda:", obs_start)
-    if leyenda_start == -1:
-        return observaciones
-
-    table_section = content[obs_start:leyenda_start]
-    lines = table_section.strip().split("\n")
-
-    for line in lines:
+    table_section = obs_match.group(1)
+    
+    # Extraer todas las filas de la tabla (líneas que empiezan y terminan con '|')
+    for line in table_section.split("\n"):
         line = line.strip()
-        if not line or not line.startswith("|"):
+        if not line.startswith("|") or not line.endswith("|"):
             continue
 
-        parts = [p.strip() for p in line.split("|")]
-        # Quitar solo primer y último elemento si son vacíos (bordes de tabla)
-        if parts and not parts[0]:
-            parts.pop(0)
-        if parts and not parts[-1]:
-            parts.pop()
-
+        # Separar celdas y limpiar espacios, ignorando los bordes vacíos
+        parts = [p.strip() for p in line.split("|")[1:-1]]
+        
         if len(parts) >= 4:
-            # Ignorar líneas de separación o headers
             first_cell = parts[0]
+            # Ignorar líneas de separación (ej. |---|---|) y cabeceras
             if set(first_cell) <= set("-:| "):
                 continue
-            if first_cell in ("Fecha", "Date"):
+            if first_cell.lower() in ("fecha", "date"):
                 continue
 
             fecha, codigo, tipo, comentario = parts[0], parts[1], parts[2], parts[3]
+            
             # Ignorar filas vacías donde fecha y comentario están vacíos
             if not fecha and not comentario:
                 continue
