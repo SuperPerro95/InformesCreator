@@ -522,3 +522,38 @@ async function downloadExistingReport(course, filename) {
     showToast('No se pudo descargar el informe. Intenta de nuevo.', 'error');
   }
 }
+export async function enterCourse(name) {
+  const state = await import('./state.js');
+  state.setSelectedCourse(name);
+  
+  setLoading(true);
+  try {
+    const [courseData, sessionData] = await Promise.all([
+      apiGet(`/courses/${encodeURIComponent(name)}/students`),
+      apiGet(`/courses/${encodeURIComponent(name)}/session`)
+    ]);
+    
+    state.setAllStudents(courseData.students || []);
+    
+    const sessions = state.getCourseSessions();
+    sessions[name] = sessionData;
+    state.setCourseSessions(sessions);
+    state.setSessionReports(sessionData.reports || []);
+    
+    // Show the view
+    const utils = await import('./utils.js');
+    utils.hideMainContentScreens();
+    utils.show($( 'layout-body' ));
+    utils.show($( 'course-view' ));
+    
+    const titleEl = $('course-view-title');
+    if (titleEl) titleEl.textContent = name;
+    
+    await renderDashboard();
+  } catch (err) {
+    console.error(err);
+    showToast('Error al cargar el curso', 'error');
+  } finally {
+    setLoading(false);
+  }
+}

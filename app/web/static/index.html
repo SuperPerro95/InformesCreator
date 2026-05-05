@@ -7,7 +7,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/style.css?v=18">
+    <link rel="stylesheet" href="/css/style.css?v=19">
     <link rel="icon" href="/logotipo-informescreator.png">
     <script>
         // Early redirect for logged-in users to prevent landing flash
@@ -20,7 +20,7 @@
             }
         } catch (e) {}
     </script>
-    <script src="https://unpkg.com/lucide@latest" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.321.0/dist/umd/lucide.min.js"></script>
 </head>
 <body>
     <div id="app">
@@ -94,40 +94,36 @@
                         <span id="sidebar-status-dot" class="dropdown-status-dot"></span>
                         <span id="sidebar-status-text" class="sidebar-status-text">Verificando...</span>
                     </div>
-                    <div class="sidebar-folder-row" id="sidebar-folder-row">
-                        <span id="sidebar-path-alias" class="sidebar-path-alias">Sin ruta</span>
-                        <span id="sidebar-change-path" class="sidebar-change-path">Cambiar</span>
-                    </div>
                     <div class="sidebar-footer-divider"></div>
                     <nav class="sidebar-nav-links">
-                        <a href="#/courses" id="sidebar-link-courses" class="sidebar-nav-item">
-                            <i data-lucide="users" style="width:16px;height:16px;"></i> Mis Cursos
-                        </a>
                         <a href="#/questionnaires" id="sidebar-link-questionnaires" class="sidebar-nav-item">
-                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Cuestionarios
+                            <i data-lucide="clipboard-list" style="width:16px;height:16px;"></i> Gestionar Cuestionarios
                         </a>
                     </nav>
                     <div class="sidebar-footer-divider"></div>
-                    <div class="sidebar-user-row">
+                    <div class="sidebar-user-row" id="sidebar-user-row">
                         <div class="sidebar-user-avatar">
                             <i data-lucide="user" style="width:16px;height:16px;"></i>
                         </div>
-                        <span id="sidebar-username" class="sidebar-username">Docente</span>
+                        <div class="sidebar-user-info">
+                            <span id="sidebar-username" class="sidebar-username">Docente</span>
+                            <span id="sidebar-path-alias" class="sidebar-user-subtitle">Sin carpeta</span>
+                        </div>
                         <button id="btn-sidebar-user-menu" class="sidebar-user-chevron" aria-label="Menu de usuario">
                             <i data-lucide="chevron-up" style="width:14px;height:14px;"></i>
                         </button>
                     </div>
                     <div id="sidebar-user-menu-expanded" class="sidebar-user-menu-expanded hidden">
-                        <a href="#" id="sidebar-menu-profile" class="dropdown-item">
-                            <i data-lucide="settings" style="width:16px;height:16px;"></i> Configuración
-                        </a>
+                        <button id="sidebar-menu-change-folder" class="dropdown-item">
+                            <i data-lucide="folder-open" style="width:16px;height:16px;"></i> Cambiar carpeta
+                        </button>
                         <a href="#" id="sidebar-menu-help" class="dropdown-item">
                             <i data-lucide="help-circle" style="width:16px;height:16px;"></i> Ayuda
                         </a>
                         <div class="dropdown-divider"></div>
-                        <a href="#" id="sidebar-menu-logout" class="dropdown-item dropdown-danger">
+                        <button id="sidebar-menu-logout" class="dropdown-item dropdown-danger">
                             <i data-lucide="log-out" style="width:16px;height:16px;"></i> Cerrar sesión
-                        </a>
+                        </button>
                     </div>
                 </div>
             </aside>
@@ -462,6 +458,53 @@
         </div><!-- /#wizard -->
             </main><!-- /#main-content -->
 
+            <!-- ====== Pantalla de Cuestionarios ====== -->
+            <main id="questionnaires-screen" class="hidden">
+                <div class="course-view-surface">
+                    <div class="questionnaires-header">
+                        <div>
+                            <h2>Mis Cuestionarios</h2>
+                            <p class="hint">Gestioná las preguntas y criterios de evaluación.</p>
+                        </div>
+                        <button id="btn-new-questionnaire" class="btn-primary">
+                            <i data-lucide="plus" style="width:18px;height:18px;"></i> Nuevo Cuestionario
+                        </button>
+                    </div>
+                    <div id="questionnaires-list" class="questionnaires-list">
+                        <!-- Rendered by questionnaire-editor.js -->
+                    </div>
+                </div>
+            </main>
+
+            <!-- ====== Editor de Cuestionario ====== -->
+            <main id="questionnaire-editor-screen" class="hidden">
+                <div class="course-view-surface">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 id="qe-title">Editar Cuestionario</h2>
+                        <div class="flex gap-2">
+                            <button id="btn-qe-save" class="btn-primary">Guardar Cambios</button>
+                            <button id="btn-qe-cancel" class="btn-ghost">Cancelar</button>
+                        </div>
+                    </div>
+                    <div class="editor-fields">
+                        <label>Nombre del Cuestionario</label>
+                        <input type="text" id="qe-name" placeholder="Ej: Evaluación Primer Trimestre">
+                        <label>Descripción</label>
+                        <textarea id="qe-desc" placeholder="Breve descripción..."></textarea>
+                    </div>
+                    <div class="qe-editor-layout">
+                        <div class="qe-editor-pane">
+                            <label>Estructura (Markdown)</label>
+                            <textarea id="qe-markdown-editor" spellcheck="false"></textarea>
+                        </div>
+                        <div class="qe-preview-pane">
+                            <label>Vista Previa</label>
+                            <div id="qe-preview" class="qe-preview"></div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+
         </div><!-- /#layout-body -->
 
         <!-- ====== Drawer de Alumno (JS-rendered) ====== -->
@@ -495,6 +538,6 @@
         </div>
     </div>
 
-    <script type="module" src="/js/app.js?v=17"></script>
+    <script type="module" src="/js/app.js?v=23"></script>
 </body>
 </html>

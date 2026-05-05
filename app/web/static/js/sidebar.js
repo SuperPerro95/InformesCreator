@@ -26,7 +26,7 @@ export async function renderSidebarCourses() {
         const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
         const completeClass = pct >= 100 ? ' complete' : '';
         const active = selectedCourse === name ? ' active' : '';
-        return `<div class="sidebar-course-item${active}" data-course="${name.replace(/"/g, '&quot;')}" onclick="navigateToCourse('${name.replace(/'/g, "\\'")}')" tabindex="0" role="button" aria-pressed="${selectedCourse === name}">
+        return `<a href="#/course/${name.replace(/\s+/g, '-')}" class="sidebar-course-item${active}" data-course="${name.replace(/"/g, '&quot;')}" aria-pressed="${selectedCourse === name}">
         <div class="sidebar-course-top">
         <span class="sidebar-course-name">${name}</span>
         <span class="sidebar-course-badge">${total}</span>
@@ -37,7 +37,7 @@ export async function renderSidebarCourses() {
         </div>
         <span class="sidebar-course-progress-text">${completed}/${total}</span>
         </div>
-        </div>`;
+        </a>`;
       }).join('');
     }
   } catch (err) {
@@ -118,3 +118,78 @@ export async function createCourseFromSidebar() {
     showToast('No se pudo crear el curso. Verifica la carpeta y los permisos.', 'error');
   } finally { setLoading(false); }
 }
+export function updateSidebarStatus(status) {
+  const dot = $('sidebar-status-dot');
+  const text = $('sidebar-status-text');
+  const pathAlias = $('sidebar-path-alias');
+
+  if (dot && text) {
+    if (status.running) {
+      dot.className = 'dropdown-status-dot status-online';
+      text.textContent = 'Ollama: Conectado';
+    } else {
+      dot.className = 'dropdown-status-dot status-offline';
+      text.textContent = 'Ollama: Desconectado';
+    }
+  }
+
+  if (pathAlias) {
+    if (status.folderOk) {
+      const folderName = status.basePath.split(/[\\/]/).pop() || 'Carpeta OK';
+      pathAlias.textContent = folderName;
+      pathAlias.title = status.basePath;
+      pathAlias.classList.remove('error-text');
+    } else {
+      pathAlias.textContent = 'Configurar carpeta';
+      pathAlias.classList.add('error-text');
+    }
+  }
+}
+
+export function initSidebar() {
+  const btnMenu = $('btn-sidebar-user-menu');
+  const menuExpanded = $('sidebar-user-menu-expanded');
+  const btnLogout = $('sidebar-menu-logout');
+  const btnChangeFolder = $('sidebar-menu-change-folder');
+
+  if (btnMenu && menuExpanded) {
+    btnMenu.onclick = (e) => {
+      e.stopPropagation();
+      const isHidden = menuExpanded.classList.contains('hidden');
+      if (isHidden) {
+        show(menuExpanded);
+        btnMenu.innerHTML = icon('chevron-down', 14);
+      } else {
+        hide(menuExpanded);
+        btnMenu.innerHTML = icon('chevron-up', 14);
+      }
+    };
+  }
+
+  if (btnLogout) {
+    btnLogout.onclick = async () => {
+      const { doLogout } = await import('./auth.js');
+      doLogout();
+    };
+  }
+
+  if (btnChangeFolder) {
+    btnChangeFolder.onclick = async () => {
+      hide(menuExpanded);
+      const { handleSelectFolder } = await import('./app.js');
+      await handleSelectFolder();
+    };
+  }
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (menuExpanded && !menuExpanded.classList.contains('hidden')) {
+      if (!menuExpanded.contains(e.target) && !btnMenu.contains(e.target)) {
+        hide(menuExpanded);
+        btnMenu.innerHTML = icon('chevron-up', 14);
+      }
+    }
+  });
+}
+
+on('status:changed', (status) => updateSidebarStatus(status));
