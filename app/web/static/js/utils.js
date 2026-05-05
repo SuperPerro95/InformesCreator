@@ -260,7 +260,7 @@ export function updateHelpButton(screen) {
 }
 
 export function hideMainContentScreens() {
-  const screens = ['courses-grid', 'course-view', 'wizard', 'questionnaires-screen', 'questionnaire-editor'];
+  const screens = ['main-content', 'questionnaires-screen', 'questionnaire-editor-screen', 'wizard'];
   screens.forEach(id => {
     const el = $(id);
     if (el) hide(el);
