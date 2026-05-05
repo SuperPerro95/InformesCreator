@@ -503,11 +503,16 @@ export async function doChangeFolder() {
     showToast('Carpeta actualizada', 'success');
     
     // Refresh sidebar and grid if needed
-    import('./app.js').then(m => {
-      m.preloadSystemStatus();
-      m.loadCoursesGrid();
-      m.renderSidebarCourses();
-    });
+    const appMod = await import('./app.js');
+    const status = await appMod.preloadSystemStatus();
+    appMod.loadCoursesGrid();
+    import('./sidebar.js').then(m => m.renderSidebarCourses());
+    const dot = $('sidebar-status-dot');
+    const text = $('sidebar-status-text');
+    if (dot) dot.className = 'dropdown-status-dot ' + (status.ollamaRunning ? 'ok' : 'error');
+    if (text) text.textContent = status.ollamaRunning ? 'Ollama conectado' : 'Ollama desconectado';
+    const pathAlias = $('sidebar-path-alias');
+    if (pathAlias) pathAlias.textContent = status.basePath || data.path;
   } catch (err) {
     setLoading(false);
     showToast('Error al cambiar carpeta', 'error');

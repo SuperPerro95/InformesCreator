@@ -154,7 +154,7 @@ export function setLoading(isLoading, message) {
 }
 
 export function announceStep(step) {
-  const labels = { 1: 'Paso 1: Cuestionario y observaciones', 2: 'Paso 2: Configuracion del informe', 3: 'Paso 3: Informe generado' };
+  const labels = { 1: 'Paso 1: Asistencia y observaciones', 2: 'Paso 2: Cuestionario', 3: 'Paso 3: Configuracion del informe', 4: 'Paso 4: Informe generado' };
   const el = $('step-announcement');
   if (el) el.textContent = labels[step] || '';
 }

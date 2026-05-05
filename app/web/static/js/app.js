@@ -331,8 +331,11 @@ async function init() {
   if (authState.loggedIn) {
     const layout = $('layout-body');
     if (layout) layout.classList.remove('hidden');
-    
+
+    wireSidebarFooter();
+
     const status = await preloadSystemStatus();
+    updateSidebarStatus(status);
     if (!status.ollamaRunning || !status.folderOk) {
       if (window.location.hash !== '#/onboarding') navigateTo('#/onboarding');
     }

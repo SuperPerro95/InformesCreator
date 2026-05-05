@@ -2,7 +2,10 @@ import { apiGet, apiPost } from './api.js';
 import { $, show, hide, showToast, setLoading, renderMarkdownToHtml, showRetryableError } from './utils.js';
 import { getSelectedCourse, getAllStudents, getCurrentStudentIndex, getSessionReports, setSessionReports, getSelectedVariant, getSelectedModel, getCourseSessions, setCourseSessions } from './state.js';
 
+let _generating = false;
+
 export async function doGenerateReport() {
+  if (_generating) return;
   const allStudents = getAllStudents();
   const currentStudentIndex = getCurrentStudentIndex();
   const selectedCourse = getSelectedCourse();
@@ -17,6 +20,9 @@ export async function doGenerateReport() {
     showToast('Selecciona un modelo para generar el informe.', 'warning');
     return;
   }
+  _generating = true;
+  const btnGenerate = document.querySelector('#step-3 .btn-primary');
+  if (btnGenerate) btnGenerate.disabled = true;
   const { collectAnswers } = await import('./wizard.js');
   const answers = collectAnswers();
   const model = selectedModel;
@@ -68,8 +74,12 @@ export async function doGenerateReport() {
       hide(btnNext);
     }
     setLoading(false);
+    _generating = false;
+    if (btnGenerate) btnGenerate.disabled = false;
   } catch (err) {
     setLoading(false);
+    _generating = false;
+    if (btnGenerate) btnGenerate.disabled = false;
     showRetryableError('No se pudo generar el informe.', err, doGenerateReport);
   }
 }
@@ -117,6 +127,7 @@ function updateCustomizationText() {
 }
 
 export async function doRegenerateWithCustomization() {
+  if (_generating) return;
   const allStudents = getAllStudents();
   const currentStudentIndex = getCurrentStudentIndex();
   const selectedCourse = getSelectedCourse();
@@ -125,6 +136,9 @@ export async function doRegenerateWithCustomization() {
     showToast('Faltan datos para generar el informe.', 'warning');
     return;
   }
+  _generating = true;
+  const btnRegenerate = document.querySelector('#btn-regenerate-custom');
+  if (btnRegenerate) btnRegenerate.disabled = true;
   const selectedVariant = getSelectedVariant() || 'A';
   const { collectAnswers } = await import('./wizard.js');
   const answers = collectAnswers();
@@ -171,8 +185,12 @@ export async function doRegenerateWithCustomization() {
     const preview = $('report-preview');
     if (preview) { preview.setAttribute('tabindex', '-1'); preview.focus(); }
     setLoading(false);
+    _generating = false;
+    if (btnRegenerate) btnRegenerate.disabled = false;
   } catch (err) {
     setLoading(false);
+    _generating = false;
+    if (btnRegenerate) btnRegenerate.disabled = false;
     showRetryableError('No se pudo regenerar el informe.', err, doRegenerateWithCustomization);
   }
 }
