@@ -150,11 +150,12 @@ const ONBOARDING_TEMPLATE = `
 `;
 
 export function showOnboarding() {
+  const root = $('onboarding-root');
+  if (!root) return;
+  root.innerHTML = ONBOARDING_TEMPLATE;
   const overlay = $('onboarding-overlay');
-  if (!overlay) return;
-  overlay.innerHTML = ONBOARDING_TEMPLATE;
-  overlay.classList.remove('hidden');
-  refreshIcons(overlay);
+  if (overlay) overlay.classList.remove('hidden');
+  refreshIcons(root);
   bindOnboardingListeners();
   checkOnboardingStatus();
 }
@@ -192,7 +193,11 @@ async function handleOnboardingSelectFolder() {
     setLoading(true);
     const data = await apiGet('/pick-folder');
     setLoading(false);
-    if (data.error || data.cancelled || !data.path) return;
+    if (data.error) {
+      showToast(data.error, 'error');
+      return;
+    }
+    if (data.cancelled || !data.path) return;
     await apiPost('/config', { base_path: data.path });
     checkOnboardingStatus();
   } catch (err) {
